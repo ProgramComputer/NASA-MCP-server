@@ -1,0 +1,39 @@
+# Smithery configuration file: https://smithery.ai/docs/config#smitheryyaml
+
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - nasaApiKey
+    properties:
+      nasaApiKey:
+        type: string
+        default: DEMO_KEY
+        description: Your NASA API key from https://api.nasa.gov/
+      port:
+        type: number
+        default: 3000
+        description: Port to run the server on
+      logLevel:
+        type: string
+        default: info
+        description: Logging level (debug, info, warn, error)
+      cacheDuration:
+        type: number
+        default: 3600
+        description: Cache duration in seconds
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({
+      command: 'sh',
+      args: ['-c', `echo "NASA_API_KEY=${config.nasaApiKey}\nPORT=${config.port || 3000}\nLOG_LEVEL=${config.logLevel || 'info'}\nCACHE_DURATION=${config.cacheDuration || 3600}" > .env && node run-with-env.js`],
+      env: {}
+    })
+  exampleConfig:
+    nasaApiKey: DEMO_KEY
+    port: 3000
+    logLevel: info
+    cacheDuration: 3600
