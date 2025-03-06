@@ -1,7 +1,11 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import dotenv from 'dotenv';
+import path from 'path';
 
+// Try to load environment variables from .env file with absolute path
 dotenv.config();
+// Also try with explicit path as fallback
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 // NASA API Base URLs
 export const NASA_API_BASE_URL = 'https://api.nasa.gov';
@@ -16,10 +20,14 @@ export async function nasaApiRequest(
   options: AxiosRequestConfig = {}
 ) {
   try {
+    // First check for API key in environment variables
     const apiKey = process.env.NASA_API_KEY;
+    
     if (!apiKey) {
-      throw new Error('NASA API key not found. Please set NASA_API_KEY in .env file');
+      throw new Error('NASA API key not found. Please set NASA_API_KEY in environment variable or .env file');
     }
+    
+    console.log(`Using NASA API key: ${apiKey.substring(0, 5)}...`);
 
     const response = await axios({
       url: `${NASA_API_BASE_URL}${endpoint}`,
@@ -60,9 +68,12 @@ export async function jplApiRequest(
   try {
     // JPL endpoints use the same NASA API key as other NASA APIs
     const apiKey = process.env.NASA_API_KEY;
+    
     if (!apiKey) {
-      throw new Error('NASA API key not found. Please set NASA_API_KEY in .env file');
+      console.log('Environment variables:', JSON.stringify(process.env, null, 2));
+      throw new Error(`NASA API key not found. Please set NASA_API_KEY in environment variable or .env file. All env vars: ${Object.keys(process.env).join(', ')}`);
     }
+    
     const paramsWithKey = { ...params, api_key: apiKey };
 
     const response = await axios({

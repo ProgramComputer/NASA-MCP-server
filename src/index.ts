@@ -2,6 +2,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import dotenv from "dotenv";
 import { setupHandlers } from "./handlers/setup.js";
+import { setupEnvironment } from "./utils/env-setup.js";
 import { z } from "zod";
 import { 
   CallToolRequestSchema,
@@ -9,7 +10,9 @@ import {
   ReadResourceRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
 
-// Load environment variables
+// Load environment variables with enhanced setup
+setupEnvironment();
+// Also load with standard dotenv for compatibility
 dotenv.config();
 
 // Global state for resources
@@ -620,29 +623,34 @@ async function handleToolCall(toolName: string, args: Record<string, any>) {
   if (toolName.startsWith("nasa/")) {
     // Extract the NASA API endpoint name
     const endpoint = toolName.split("/")[1];
-    console.log(`Endpoint: ${endpoint}`);
+    console.log(`NASA Endpoint: ${endpoint}`);
     
     try {
-      // Special case for neo endpoint to avoid TypeScript issues
-      if (endpoint === "neo") {
-        console.log("Using special case for neo endpoint");
-        // Import the handler from simple-neo
-        const { simpleNeoHandler } = await import('./handlers/nasa/simple-neo.js');
-        // Use the imported function
-        return await simpleNeoHandler(args);
-      }
-      
-      // Dynamic import for other handlers
+      // Dynamic import for all NASA handlers
       console.log(`Importing handler module: ./handlers/nasa/${endpoint}.js`);
       const handlerModule = await import(`./handlers/nasa/${endpoint}.js`);
       console.log("Handler module imported:", handlerModule);
       
+      // Try to find the handler function in various export formats
+      // 1. First check for a default export
       if (typeof handlerModule.default === 'function') {
         console.log("Found default export function, calling it");
         return await handlerModule.default(args);
-      } else {
-        console.log("No default export function found in module:", handlerModule);
-        throw new Error(`Handler for ${endpoint} does not export a default function`);
+      } 
+      // 2. Check for a function named after the endpoint (e.g., 'apodHandler')
+      else if (typeof handlerModule[`${endpoint}Handler`] === 'function') {
+        console.log(`Found named export ${endpoint}Handler function, calling it`);
+        return await handlerModule[`${endpoint}Handler`](args);
+      } 
+      // 3. Check for a function named with nasa prefix (e.g., 'nasaApodHandler')
+      else if (typeof handlerModule[`nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler`] === 'function') {
+        console.log(`Found named export nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler function, calling it`);
+        return await handlerModule[`nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler`](args);
+      }
+      // No usable export found
+      else {
+        console.log("No handler function found in module:", handlerModule);
+        throw new Error(`Handler for ${endpoint} does not have a usable export function`);
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
