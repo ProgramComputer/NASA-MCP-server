@@ -476,9 +476,9 @@ async function startServer() {
         name: resource.name
       }));
       
-      // Get resource templates
+      // Get resource templates - mapped to have uri property to match protocol requirements
       const resourceTemplatesList = resourceTemplates.map(template => ({
-        uriTemplate: template.uriTemplate,
+        uri: template.uriTemplate, // Use uriTemplate as uri
         name: template.name,
         description: template.description
       }));
