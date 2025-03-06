@@ -23,12 +23,6 @@ export const resources = new Map<string, {
   blob?: Uint8Array;
 }>();
 
-// Add a simple hello world resource
-resources.set("hello://world", {
-  name: "Hello World Message",
-  mimeType: "text/plain",
-  text: "Hello, World! This is my first MCP resource."
-});
 
 // Keep a reference to the server for notifications
 let serverInstance: Server | null = null;
@@ -93,7 +87,7 @@ export const resourceTemplates: Array<{
   {
     name: "mars-rover-photo",
     description: "NASA Mars Rover photograph",
-    uriTemplate: "nasa://mars_rover/photo?rover={rover}&id={id}",
+    uriTemplate: "nasa://mars-rover/photo?rover={rover}&id={id}",
     generator: async (params) => {
       const rover = params["rover"] || "curiosity";
       const id = params["id"] || "1";
@@ -421,7 +415,7 @@ async function startServer() {
             },
             {
               name: "NASA Mars Rover Photos",
-              id: "nasa/mars_rover",
+              id: "nasa/mars-rover",
               description: "Browse photos from NASA's Mars rovers"
             },
             {
@@ -808,7 +802,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/mars_rover",
+              name: "nasa/mars-rover",
               description: "NASA Mars Rover Photos - images from Mars rovers",
               inputSchema: {
                 type: "object",
@@ -1264,9 +1258,9 @@ export function registerMcpTools() {
       return await handleToolCall('nasa/donki', args);
     });
 
-    registerGlobalTool('mcp__nasamars_rover', async (args: Record<string, any>) => {
+    registerGlobalTool('mcp__nasamars-rover', async (args: Record<string, any>) => {
       console.log('MCP NASA Mars Rover called with args:', args);
-      return await handleToolCall('nasa/mars_rover', args);
+      return await handleToolCall('nasa/mars-rover', args);
     });
 
     registerGlobalTool('mcp__nasaeonet', async (args: Record<string, any>) => {
