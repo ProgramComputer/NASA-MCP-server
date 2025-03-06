@@ -24,17 +24,21 @@ Big thanks to the MCP community for their support and guidance!
 ### Running with npx
 
 ```bash
-env NASA_API_KEY=YOUR_API_KEY npx -y nasa-mcp-server
+env NASA_API_KEY=YOUR_API_KEY npx -y @ProgramComputer/NASA-MCP-server
 ```
 
 ### Manual Installation
 
 ```bash
-# Install globally
-npm install -g nasa-mcp-server
+# Clone the repository
+git clone https://github.com/ProgramComputer/NASA-MCP-server.git
+
+# Install dependencies
+cd NASA-MCP-server
+npm install
 
 # Run with your API key
-NASA_API_KEY=YOUR_API_KEY nasa-mcp-server
+NASA_API_KEY=YOUR_API_KEY npm start
 ```
 
 ### Running on Cursor
@@ -49,7 +53,7 @@ To configure NASA MCP Server in Cursor:
 4. Enter the following:  
    * Name: "nasa-mcp" (or your preferred name)  
    * Type: "command"  
-   * Command: `env NASA_API_KEY=your-api-key npx -y nasa-mcp-server`
+   * Command: `env NASA_API_KEY=your-api-key npx -y @ProgramComputer/NASA-MCP-server`
 
 Replace `your-api-key` with your NASA API key from https://api.nasa.gov/.
 
@@ -206,7 +210,7 @@ This MCP server implements security best practices following the Model Context P
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/nasa-mcp-server.git
+git clone https://github.com/ProgramComputer/NASA-MCP-server.git
 
 # Install dependencies
 npm install
