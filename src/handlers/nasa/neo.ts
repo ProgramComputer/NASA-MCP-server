@@ -232,5 +232,5 @@ function formatNeoFeedText(feedData: any, startDate: string, endDate: string): s
   return text;
 }
 
-// Export the handler function for direct usage
+// Export the handler function directly as default
 export default nasaNeoHandler; 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { nasaApiRequest } from '../../utils/api-client';
+import { addResource } from '../../index';
 
 // Schema for validating Sounds request parameters
 export const soundsParamsSchema = z.object({
@@ -20,6 +21,36 @@ export async function nasaSoundsHandler(params: SoundsParams) {
     
     // Call the NASA Sounds API
     const result = await nasaApiRequest(endpoint, params);
+    
+    // Register each sound as a separate resource
+    if (result && result.count > 0 && Array.isArray(result.results)) {
+      result.results.forEach((sound: any, index: number) => {
+        // Create a unique resource ID for each sound
+        const soundId = sound.id || `sound-${index}`;
+        const resourceId = `nasa://sounds/item?id=${soundId}`;
+        
+        // Register the sound as a resource
+        addResource(resourceId, {
+          name: sound.title || `NASA Sound ${soundId}`,
+          mimeType: 'application/json',
+          text: JSON.stringify(sound, null, 2)
+        });
+      });
+    }
+    
+    // Also register the full collection
+    const queryParams = [];
+    if (params.q) queryParams.push(`q=${encodeURIComponent(params.q)}`);
+    if (params.limit) queryParams.push(`limit=${params.limit}`);
+    if (params.page) queryParams.push(`page=${params.page}`);
+    
+    const collectionResourceId = `nasa://sounds/collection${queryParams.length > 0 ? '?' + queryParams.join('&') : ''}`;
+    
+    addResource(collectionResourceId, {
+      name: `NASA Sounds Collection${params.q ? ` for "${params.q}"` : ''}`,
+      mimeType: 'application/json',
+      text: JSON.stringify(result, null, 2)
+    });
     
     // Return the result
     return { result };
@@ -44,4 +75,7 @@ export async function nasaSoundsHandler(params: SoundsParams) {
       }
     };
   }
-} 
+}
+
+// Export the handler function directly as default
+export default nasaSoundsHandler; 

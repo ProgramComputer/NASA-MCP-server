@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { nasaApiRequest } from '../../utils/api-client';
 import { DonkiParams } from '../setup';
+import { addResource } from '../../index';
 
 /**
  * Handle requests for NASA's Space Weather Database Of Notifications, Knowledge, Information (DONKI) API
@@ -34,6 +35,19 @@ export async function nasaDonkiHandler(params: DonkiParams) {
     // Call the NASA DONKI API
     const result = await nasaApiRequest(endpoint, queryParams);
     
+    // Create a resource ID and register the resource
+    const dateParams = [];
+    if (startDate) dateParams.push(`start=${startDate}`);
+    if (endDate) dateParams.push(`end=${endDate}`);
+    
+    const resourceId = `nasa://donki/${type}${dateParams.length > 0 ? '?' + dateParams.join('&') : ''}`;
+    
+    addResource(resourceId, {
+      name: `DONKI ${type.toUpperCase()} Space Weather Data${startDate ? ` from ${startDate}` : ''}${endDate ? ` to ${endDate}` : ''}`,
+      mimeType: 'application/json',
+      text: JSON.stringify(result, null, 2)
+    });
+    
     // Return the result
     return { result };
   } catch (error: any) {
@@ -57,4 +71,7 @@ export async function nasaDonkiHandler(params: DonkiParams) {
       }
     };
   }
-} 
+}
+
+// Export the handler function directly as default
+export default nasaDonkiHandler; 

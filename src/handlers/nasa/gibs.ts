@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
+import { addResource } from '../../index';
 
 // Schema for validating GIBS request parameters
 export const gibsParamsSchema = z.object({
@@ -26,11 +27,14 @@ export async function nasaGibsHandler(params: GibsParams) {
     // Construct the GIBS URL
     const baseUrl = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
     
+    // Convert format to proper MIME type format for WMS
+    const mimeFormat = format === 'jpg' ? 'jpeg' : format;
+    
     const requestParams = {
       SERVICE: 'WMS',
       VERSION: '1.3.0',
       REQUEST: 'GetMap',
-      FORMAT: `image/${format}`,
+      FORMAT: `image/${mimeFormat}`,
       LAYERS: layer,
       CRS: 'EPSG:4326',
       BBOX: bboxParam,
@@ -43,24 +47,68 @@ export async function nasaGibsHandler(params: GibsParams) {
     const response = await axios({
       url: baseUrl,
       params: requestParams,
-      responseType: 'arraybuffer'
+      responseType: 'arraybuffer',
+      timeout: 30000
     });
     
-    // Return metadata and image data as base64
+    // Convert response to base64
+    const imageBase64 = Buffer.from(response.data).toString('base64');
+    
+    // Register the image as a resource
+    const formattedDate = date || new Date().toISOString().split('T')[0];
+    const resourceUri = `nasa://gibs/imagery?layer=${layer}&date=${formattedDate}`;
+    
+    addResource(resourceUri, {
+      name: `NASA GIBS: ${layer} (${formattedDate})`,
+      mimeType: `image/${format}`,
+      text: imageBase64
+    });
+    
+    // Return metadata and image data
     return {
-      layer,
-      date: date || 'latest',
-      format,
-      imageData: Buffer.from(response.data).toString('base64'),
-      contentType: format
+      content: [
+        {
+          type: "text",
+          text: `NASA GIBS satellite imagery for ${layer} on ${date || 'latest'}`
+        },
+        {
+          type: "image",
+          mimeType: `image/${format}`,
+          data: imageBase64
+        },
+        {
+          type: "text",
+          text: `Resource registered at: ${resourceUri}`
+        }
+      ],
+      isError: false
     };
   } catch (error: any) {
     console.error('Error in GIBS handler:', error);
     
     if (error.name === 'ZodError') {
-      throw new Error(`Invalid request parameters: ${error.message}`);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Invalid request parameters: ${error.message}`
+          }
+        ],
+        isError: true
+      };
     }
     
-    throw new Error(`API error: ${error.message}`);
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error retrieving GIBS data: ${error.message}`
+        }
+      ],
+      isError: true
+    };
   }
-} 
+}
+
+// Add a default export for the handler
+export default nasaGibsHandler; 

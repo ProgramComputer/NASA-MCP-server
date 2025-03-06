@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
+import { addResource } from '../../index';
 
 const FIRMS_API_BASE_URL = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
 
@@ -68,14 +69,65 @@ export async function nasaFirmsHandler(params: FirmsParams) {
         return entry;
       });
     
-    return { results };
+    // Register the response as a resource
+    const resourceId = `nasa://firms/data?lat=${latitude}&lon=${longitude}&days=${days}&source=${source}`;
+    const resourceData = {
+      metadata: {
+        latitude,
+        longitude,
+        radius,
+        days,
+        source
+      },
+      results
+    };
+    
+    addResource(resourceId, {
+      name: `Fire Data near (${latitude}, ${longitude}) for the past ${days} day(s)`,
+      mimeType: 'application/json',
+      text: JSON.stringify(resourceData, null, 2)
+    });
+    
+    // Return data in MCP format
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Found ${results.length} fire hotspots near (${latitude}, ${longitude}) in the past ${days} day(s)`
+        },
+        {
+          type: "text",
+          text: JSON.stringify(results, null, 2)
+        }
+      ],
+      isError: false
+    };
   } catch (error: any) {
     console.error('Error in FIRMS handler:', error);
     
     if (error.name === 'ZodError') {
-      throw new Error(`Invalid request parameters: ${error.message}`);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Invalid request parameters: ${error.message}`
+          }
+        ],
+        isError: true
+      };
     }
     
-    throw new Error(`API error: ${error.message}`);
+    return {
+      content: [
+        {
+          type: "text",
+          text: `API error: ${error.message}`
+        }
+      ],
+      isError: true
+    };
   }
-} 
+}
+
+// Export the handler function directly as default
+export default nasaFirmsHandler; 

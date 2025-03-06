@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
+import { addResource } from '../../index';
 
 // Schema for validating POWER request parameters
 export const powerParamsSchema = z.object({
@@ -41,6 +42,23 @@ export async function nasaPowerHandler(params: PowerParams) {
       method: 'GET'
     });
     
+    // Create a resource ID based on key parameters
+    const resourceParams = [];
+    if (params.parameters) resourceParams.push(`parameters=${params.parameters}`);
+    if (params.latitude !== undefined) resourceParams.push(`lat=${params.latitude}`);
+    if (params.longitude !== undefined) resourceParams.push(`lon=${params.longitude}`);
+    if (params.start) resourceParams.push(`start=${params.start}`);
+    if (params.end) resourceParams.push(`end=${params.end}`);
+    
+    const resourceId = `nasa://power/${community}?${resourceParams.join('&')}`;
+    
+    // Register the response as a resource
+    addResource(resourceId, {
+      name: `NASA POWER ${community.toUpperCase()} Data${params.latitude !== undefined ? ` at (${params.latitude}, ${params.longitude})` : ''}`,
+      mimeType: params.format === 'json' ? 'application/json' : 'text/plain',
+      text: params.format === 'json' ? JSON.stringify(response.data, null, 2) : response.data
+    });
+    
     // Return the result
     return { result: response.data };
   } catch (error: any) {
@@ -64,4 +82,7 @@ export async function nasaPowerHandler(params: PowerParams) {
       }
     };
   }
-} 
+}
+
+// Export the handler function directly as default
+export default nasaPowerHandler; 

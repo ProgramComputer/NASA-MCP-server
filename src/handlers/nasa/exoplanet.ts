@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
+import { addResource } from '../../index';
 
 // Base URL for NASA's Exoplanet Archive
 const EXOPLANET_API_URL = 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync';
@@ -61,6 +62,16 @@ export async function nasaExoplanetHandler(params: ExoplanetParams) {
       }
     });
     
+    // Create a resource ID based on the query parameters
+    const resourceId = `nasa://exoplanet/data?table=${table}${where ? `&where=${encodeURIComponent(where)}` : ''}${limit ? `&limit=${limit}` : ''}`;
+    
+    // Register the response as a resource
+    addResource(resourceId, {
+      name: `Exoplanet data from ${table}${where ? ` with filter` : ''}`,
+      mimeType: format === 'json' ? 'application/json' : 'text/plain',
+      text: format === 'json' ? JSON.stringify(response.data, null, 2) : response.data
+    });
+    
     if (format === 'json') {
       return { results: response.data };
     } else {
@@ -79,4 +90,7 @@ export async function nasaExoplanetHandler(params: ExoplanetParams) {
     
     throw new Error(`API error: ${error.message}`);
   }
-} 
+}
+
+// Export the handler function directly as default
+export default nasaExoplanetHandler; 

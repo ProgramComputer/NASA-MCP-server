@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import axios from 'axios';
 import { nasaApiRequest } from '../../utils/api-client';
+import { addResource } from '../../index';
 
 // Define the EPIC API base URL
 const EPIC_API_BASE_URL = 'https://epic.gsfc.nasa.gov/api';
+const EPIC_IMAGE_BASE_URL = 'https://epic.gsfc.nasa.gov/archive';
 
 // Schema for validating EPIC request parameters
 export const epicParamsSchema = z.object({
@@ -15,6 +17,67 @@ export const epicParamsSchema = z.object({
 export type EpicParams = z.infer<typeof epicParamsSchema>;
 
 /**
+ * Process EPIC API results and format them for MCP
+ * @param epicData The raw EPIC data from the API
+ * @param collection The collection type (natural or enhanced)
+ * @returns Formatted results with summary and image data
+ */
+function processEpicResults(epicData: any[], collection: string) {
+  if (!Array.isArray(epicData) || epicData.length === 0) {
+    return {
+      summary: "No EPIC data available for the specified parameters.",
+      images: []
+    };
+  }
+
+  // Extract date information from the first image
+  const firstImage = epicData[0];
+  const date = firstImage.date || 'unknown date';
+  
+  // Get image date parts for URL construction
+  const dateStr = firstImage.date.split(' ')[0];
+  const [year, month, day] = dateStr.split('-');
+  
+  // Format each image and register it as a resource
+  const images = epicData.map(img => {
+    // Construct the image URL according to NASA's format
+    const imageUrl = `${EPIC_IMAGE_BASE_URL}/${collection}/${year}/${month}/${day}/png/${img.image}.png`;
+    
+    // Create a unique resource URI for this image
+    const resourceUri = `nasa://epic/image/${collection}/${img.identifier}`;
+    
+    // Register this image as a resource
+    addResource(resourceUri, {
+      name: `NASA EPIC Earth Image - ${img.identifier}`,
+      mimeType: "image/png",
+      text: JSON.stringify({
+        id: img.identifier,
+        date: img.date,
+        caption: img.caption || "Earth view from DSCOVR satellite",
+        imageUrl: imageUrl,
+        centroid_coordinates: img.centroid_coordinates,
+        dscovr_j2000_position: img.dscovr_j2000_position,
+        lunar_j2000_position: img.lunar_j2000_position,
+        sun_j2000_position: img.sun_j2000_position,
+        attitude_quaternions: img.attitude_quaternions
+      })
+    });
+    
+    return {
+      identifier: img.identifier,
+      caption: img.caption || "Earth view from DSCOVR satellite",
+      imageUrl: imageUrl,
+      resourceUri: resourceUri
+    };
+  });
+  
+  return {
+    summary: `EPIC Earth imagery from ${date} - Collection: ${collection} - ${images.length} images available`,
+    images: images
+  };
+}
+
+/**
  * Handle requests for NASA's Earth Polychromatic Imaging Camera (EPIC) API
  */
 export async function nasaEpicHandler(params: EpicParams) {
@@ -22,75 +85,71 @@ export async function nasaEpicHandler(params: EpicParams) {
     // Parse the request parameters
     const { collection, date } = params;
     
-    // If date is provided, verify if it's available first
-    if (date) {
-      try {
-        // First try to get the list of available dates
-        const availableDatesResponse = await axios.get(`${EPIC_API_BASE_URL}/${collection}/available`, {
-          timeout: 5000 // 5 second timeout for checking dates
-        });
-        
-        const availableDates = availableDatesResponse.data;
-        
-        // Check if the requested date is available
-        if (Array.isArray(availableDates) && !availableDates.includes(date)) {
-          console.log(`Date ${date} not available for EPIC ${collection} imagery, using most recent data instead`);
-          // Requested date not available, fall back to most recent
-          const response = await axios.get(`${EPIC_API_BASE_URL}/${collection}`, {
-            timeout: 10000 // 10 second timeout
-          });
-          return response.data;
-        }
-      } catch (error) {
-        console.warn('Error checking EPIC available dates, proceeding with requested date anyway:', error);
-        // Continue with the requested date anyway
-      }
-    }
-    
     // Determine the endpoint based on parameters
     let endpoint = `/${collection}`;
     if (date) {
       endpoint += `/date/${date}`;
     }
     
-    // Direct call to EPIC API with the correct URL structure
-    const response = await axios.get(`${EPIC_API_BASE_URL}${endpoint}`, {
-      // Removed timeout to prevent timeouts with specific dates
+    console.log(`Fetching EPIC data from: ${EPIC_API_BASE_URL}${endpoint}`);
+    
+    // Try to fetch EPIC data with timeout of 30 seconds
+    const response = await axios.get(`${EPIC_API_BASE_URL}${endpoint}`, { 
+      timeout: 30000 
     });
     
-    // If we got an empty array, try to get the most recent data instead
-    if (Array.isArray(response.data) && response.data.length === 0) {
-      console.log('No data available for the specified parameters, using most recent data instead');
-      const fallbackResponse = await axios.get(`${EPIC_API_BASE_URL}/${collection}`, {
-        timeout: 10000
-      });
-      return fallbackResponse.data;
+    const epicData = response.data;
+    
+    // Process the results
+    if (epicData && epicData.length > 0) {
+      const results = processEpicResults(epicData, collection);
+      
+      return {
+        content: [
+          {
+            type: "text",
+            text: results.summary
+          },
+          ...results.images.map(img => ({
+            type: "text",
+            text: `![${img.caption}](${img.resourceUri})`
+          }))
+        ],
+        isError: false
+      };
     }
     
-    // Return the result
-    return response.data;
+    // No data found for date
+    return {
+      content: [{
+        type: "text",
+        text: `No EPIC data found for date ${date || 'latest'} in collection ${collection}`
+      }],
+      isError: false
+    };
   } catch (error: any) {
     console.error('Error in EPIC handler:', error);
     
     if (error.name === 'ZodError') {
-      throw new Error(`Invalid request parameters: ${error.message}`);
+      return {
+        content: [{
+          type: "text",
+          text: `Invalid request parameters: ${error.message}`
+        }],
+        isError: true
+      };
     }
     
-    // Use recent data as fallback if we encounter a timeout
-    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      try {
-        console.log('Timeout occurred, trying fallback to most recent data');
-        const { collection } = params;
-        const fallbackResponse = await axios.get(`${EPIC_API_BASE_URL}/${collection}`, {
-          timeout: 10000
-        });
-        return fallbackResponse.data;
-      } catch (fallbackError) {
-        console.error('Even fallback request failed:', fallbackError);
-        throw new Error(`API error (with fallback): ${error.message}`);
-      }
-    }
-    
-    throw new Error(`API error: ${error.message}`);
+    // Return a properly formatted error
+    return {
+      content: [{
+        type: "text",
+        text: `Error fetching EPIC data: ${error.message}`
+      }],
+      isError: true
+    };
   }
-} 
+}
+
+// Export the handler function directly as default
+export default nasaEpicHandler; 
