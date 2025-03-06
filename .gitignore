@@ -24,3 +24,11 @@
 # System Files
 .DS_Store
 Thumbs.db 
+# Shell scripts with sensitive data
+*.sh
+start-sse-server.sh
+
+# Secrets
+*_key*
+*apikey*
+*secret*
