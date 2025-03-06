@@ -1,0 +1,47 @@
+{
+  "name": "nasa-mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol (MCP) server for NASA APIs",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "start:sse": "node dist/sse-server.js",
+    "dev": "tsx watch src/index.ts",
+    "dev:sse": "tsx watch src/sse-server.ts",
+    "lint": "eslint .",
+    "test": "jest",
+    "direct-test": "ts-node src/tests/direct-api-test.ts",
+    "custom-test": "ts-node src/tests/custom-client/nasa-mcp-test.ts",
+    "simple-test": "ts-node src/tests/custom-client/simple-test.ts"
+  },
+  "keywords": [
+    "nasa",
+    "api",
+    "mcp",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "",
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "axios": "",
+    "cors": "",
+    "dotenv": "",
+    "express": "",
+    "zod": ""
+  },
+  "devDependencies": {
+    "@types/cors": "",
+    "@types/express": "",
+    "@types/jest": "",
+    "@types/node": "",
+    "cross-env": "^7.0.3",
+    "jest": "",
+    "ts-jest": "",
+    "ts-node": "",
+    "typed-rpc": "^6.1.1",
+    "typescript": ""
+  }
+}
