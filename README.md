@@ -1,5 +1,7 @@
 # NASA MCP Server
 
+[![smithery badge](https://smithery.ai/badge/@ProgramComputer/nasa-mcp-server)](https://smithery.ai/server/@ProgramComputer/nasa-mcp-server)
+
 A Model Context Protocol (MCP) server for NASA APIs, providing a standardized interface for AI models to interact with NASA's vast array of data sources. This server implements the official Model Context Protocol specification.
 
 Big thanks to the MCP community for their support and guidance!
@@ -20,6 +22,14 @@ Big thanks to the MCP community for their support and guidance!
 **This project is not affiliated with, endorsed by, or related to NASA (National Aeronautics and Space Administration) or any of its subsidiaries or its affiliates.** It is an independent implementation that accesses NASA's publicly available APIs. All NASA data used is publicly available and subject to NASA's data usage policies.
 
 ## Installation
+
+### Installing via Smithery
+
+To install nasa-mcp-server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@ProgramComputer/nasa-mcp-server):
+
+```bash
+npx -y @smithery/cli install @ProgramComputer/nasa-mcp-server --client claude
+```
 
 ### Running with npx
 
