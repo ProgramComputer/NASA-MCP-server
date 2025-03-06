@@ -1,0 +1,81 @@
+import { z } from 'zod';
+import axios from 'axios';
+
+const FIRMS_API_BASE_URL = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
+
+// Schema for validating FIRMS request parameters
+export const firmsParamsSchema = z.object({
+  latitude: z.number(),
+  longitude: z.number(),
+  radius: z.number().optional().default(1.0),
+  days: z.number().int().min(1).max(10).optional().default(1),
+  source: z.enum(['VIIRS_SNPP_NRT', 'MODIS_NRT', 'VIIRS_NOAA20_NRT']).optional().default('VIIRS_SNPP_NRT')
+});
+
+// Define the request parameter type based on the schema
+export type FirmsParams = z.infer<typeof firmsParamsSchema>;
+
+/**
+ * Handle requests for NASA's FIRMS (Fire Information for Resource Management System) API
+ */
+export async function nasaFirmsHandler(params: FirmsParams) {
+  try {
+    const { latitude, longitude, radius, days, source } = params;
+    
+    // Get the NASA API key from environment variables
+    const apiKey = process.env.NASA_API_KEY;
+    if (!apiKey) {
+      throw new Error('NASA API key is required for FIRMS requests');
+    }
+    
+    // Construct request URL
+    const url = FIRMS_API_BASE_URL;
+    
+    // Send request to FIRMS API
+    const response = await axios.get(url, {
+      params: {
+        lat: latitude,
+        lon: longitude,
+        radius: radius,
+        days: days,
+        source: source,
+        api_key: apiKey
+      }
+    });
+    
+    // Parse the CSV response into a structured format
+    const csvData = response.data;
+    const rows = csvData.split('\n');
+    
+    if (rows.length < 2) {
+      return { results: [] };
+    }
+    
+    const headers = rows[0].split(',');
+    const results = rows.slice(1)
+      .filter((row: string) => row.trim() !== '')
+      .map((row: string) => {
+        const values = row.split(',');
+        const entry: Record<string, string | number> = {};
+        
+        headers.forEach((header: string, index: number) => {
+          const value = values[index] ? values[index].trim() : '';
+          // Try to convert numeric values
+          const numValue = Number(value);
+          entry[header] = !isNaN(numValue) && value !== '' ? numValue : value;
+        });
+        
+        return entry;
+      });
+    
+    return { results };
+  } catch (error: any) {
+    console.error('Error in FIRMS handler:', error);
+    
+    if (error.name === 'ZodError') {
+      throw new Error(`Invalid request parameters: ${error.message}`);
+    }
+    
+    throw new Error(`API error: ${error.message}`);
+  }
+} 
