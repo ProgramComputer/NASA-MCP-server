@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
+import { addResource } from '../../index';
 
 const CMR_API_BASE_URL = 'https://cmr.earthdata.nasa.gov/search';
 
@@ -73,8 +74,16 @@ export async function nasaCmrHandler(params: CmrParams) {
       ...otherParams 
     } = params;
     
+    // Determine the correct format extension for the URL
+    let formatExtension = format;
+    if (format === 'json') {
+      formatExtension = 'json';
+    } else if (format === 'umm_json') {
+      formatExtension = 'umm_json';
+    }
+    
     // Determine search endpoint based on search type
-    const endpoint = `/${search_type}.${format}`;
+    const endpoint = `/${search_type}.${formatExtension}`;
     
     // Construct parameters
     const queryParams: Record<string, any> = {
@@ -108,35 +117,123 @@ export async function nasaCmrHandler(params: CmrParams) {
       queryParams.include_facets = 'v2';
     }
     
+    console.log(`Searching CMR: ${CMR_API_BASE_URL}${endpoint} with params:`, queryParams);
+    
     // Make the request to CMR directly
     const response = await axios({
       url: `${CMR_API_BASE_URL}${endpoint}`,
       params: queryParams,
       headers: {
-        'Client-Id': 'NASA-MCP-Server'
-      }
+        'Client-Id': 'NASA-MCP-Server',
+        'Accept': format === 'json' || format === 'umm_json' ? 'application/json' : undefined
+      },
+      timeout: 30000 // 30 second timeout
     });
     
-    return { result: response.data };
+    // Parse the response based on format
+    let data;
+    if (format === 'json' || format === 'umm_json') {
+      data = response.data;
+    } else {
+      // For non-JSON formats, just return the raw text
+      data = {
+        raw: response.data,
+        format: format
+      };
+    }
+    
+    // Format the response to match MCP expectations
+    let summary = '';
+    let formattedData;
+    
+    if (search_type === 'collections') {
+      const collectionsCount = 
+        format === 'json' ? (data.feed?.entry?.length || 0) : 
+        format === 'umm_json' ? (data.items?.length || 0) : 
+        0;
+      summary = `Found ${collectionsCount} NASA collections`;
+      formattedData = data;
+    } else {
+      const granulesCount = 
+        format === 'json' ? (data.feed?.entry?.length || 0) : 
+        format === 'umm_json' ? (data.items?.length || 0) : 
+        0;
+      summary = `Found ${granulesCount} data granules`;
+      formattedData = data;
+    }
+    
+    // Create a resource ID
+    const resourceParams = [];
+    if (params.keyword) resourceParams.push(`keyword=${encodeURIComponent(params.keyword)}`);
+    if (params.concept_id) resourceParams.push(`concept_id=${params.concept_id}`);
+    if (temporal) resourceParams.push(`temporal=${encodeURIComponent(temporal)}`);
+    
+    const resourceId = `nasa://cmr/${search_type}${resourceParams.length > 0 ? '?' + resourceParams.join('&') : ''}`;
+    
+    // Register the response as a resource
+    addResource(resourceId, {
+      name: `NASA CMR ${search_type} search${params.keyword ? ` for "${params.keyword}"` : ''}`,
+      mimeType: 'application/json',
+      text: JSON.stringify(formattedData, null, 2)
+    });
+    
+    // If the response includes specific collections or granules, register those too
+    if (formattedData.feed?.entry && Array.isArray(formattedData.feed.entry)) {
+      formattedData.feed.entry.forEach((entry: any, index: number) => {
+        if (index < 5) { // Limit to first 5 entries to avoid too many resources
+          const entryId = entry.id || entry['concept-id'] || `${search_type}-${index}`;
+          const entryTitle = entry.title || `NASA ${search_type} Item ${index + 1}`;
+          
+          const entryResourceId = `nasa://cmr/${search_type}/item?id=${entryId}`;
+          
+          addResource(entryResourceId, {
+            name: entryTitle,
+            mimeType: 'application/json',
+            text: JSON.stringify(entry, null, 2)
+          });
+        }
+      });
+    }
+    
+    return {
+      content: [
+        {
+          type: "text",
+          text: summary
+        },
+        {
+          type: "text",
+          text: JSON.stringify(formattedData, null, 2)
+        }
+      ],
+      isError: false
+    };
   } catch (error: any) {
     console.error('Error in CMR handler:', error);
     
     if (error.name === 'ZodError') {
-      throw {
-        error: {
-          type: 'invalid_request',
-          message: 'Invalid request parameters',
-          details: error.errors
-        }
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Invalid CMR request parameters: ${error.message}`
+          }
+        ],
+        isError: true
       };
     }
     
-    throw {
-      error: {
-        type: 'server_error',
-        message: error.message || 'An unexpected error occurred',
-        details: error.response?.data || null
-      }
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error searching NASA Common Metadata Repository: ${error.message || 'Unknown error'}`
+        }
+      ],
+      isError: true
     };
   }
-} 
+}
+
+// Export the handler function directly as default
+export default nasaCmrHandler; 

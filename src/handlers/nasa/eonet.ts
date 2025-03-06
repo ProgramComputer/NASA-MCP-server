@@ -2,6 +2,7 @@ import { z } from 'zod';
 import axios from 'axios';
 import { nasaApiRequest } from '../../utils/api-client';
 import { EonetParams } from '../setup';
+import { addResource } from '../../index';
 
 // Define the EONET API base URL
 const EONET_API_BASE_URL = 'https://eonet.gsfc.nasa.gov/api';
@@ -59,11 +60,32 @@ export async function nasaEonetHandler(params: EonetParams) {
         timeout: 10000
       });
       
+      // Register the response as a resource
+      const resourceId = `nasa://eonet/events?days=${broadParams.days}&status=${broadParams.status}`;
+      addResource(resourceId, {
+        name: `EONET Events (${broadParams.days} days, ${broadParams.status} status)`,
+        mimeType: 'application/json',
+        text: JSON.stringify(broadResponse.data, null, 2)
+      });
+      
       return { 
         result: broadResponse.data,
         note: 'Used broader search criteria due to no events found with original parameters'
       };
     }
+    
+    // Register the response as a resource
+    const resourceParams = [];
+    if (days) resourceParams.push(`days=${days}`);
+    if (category) resourceParams.push(`category=${category}`);
+    if (status) resourceParams.push(`status=${status}`);
+    
+    const resourceId = `nasa://eonet/events${category ? '/categories/' + category : ''}?${resourceParams.join('&')}`;
+    addResource(resourceId, {
+      name: `EONET Events${category ? ' (' + category + ')' : ''}`,
+      mimeType: 'application/json',
+      text: JSON.stringify(response.data, null, 2)
+    });
     
     // Return the original result
     return { result: response.data };
@@ -88,4 +110,7 @@ export async function nasaEonetHandler(params: EonetParams) {
       }
     };
   }
-} 
+}
+
+// Export the handler function directly as default
+export default nasaEonetHandler; 

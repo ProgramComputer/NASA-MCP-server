@@ -12,7 +12,7 @@ import { nasaFirmsHandler, firmsParamsSchema, FirmsParams } from './nasa/firms';
 import { nasaImagesHandler, imagesParamsSchema, ImagesParams } from './nasa/images';
 import { nasaExoplanetHandler, exoplanetParamsSchema, ExoplanetParams } from './nasa/exoplanet';
 import { nasaDonkiHandler } from './nasa/donki';
-import { nasaMarsRoverHandler } from './nasa/mars-rover';
+import { nasaMarsRoverHandler } from './nasa/mars_rover';
 import { nasaEonetHandler } from './nasa/eonet';
 import { nasaSoundsHandler, soundsParamsSchema, SoundsParams } from './nasa/sounds';
 import { nasaPowerHandler, powerParamsSchema, PowerParams } from './nasa/power';

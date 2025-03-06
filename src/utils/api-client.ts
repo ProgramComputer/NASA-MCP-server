@@ -21,10 +21,22 @@ export async function nasaApiRequest(
 ) {
   try {
     // First check for API key in environment variables
-    const apiKey = process.env.NASA_API_KEY;
+    let apiKey = process.env.NASA_API_KEY;
+    
+    // If not found, try loading from .env file with explicit path
+    if (!apiKey) {
+      try {
+        const envPath = path.resolve(process.cwd(), '.env');
+        dotenv.config({ path: envPath });
+        apiKey = process.env.NASA_API_KEY;
+        console.log(`Attempted to load API key from ${envPath}`);
+      } catch (error) {
+        console.error('Error loading .env file:', error);
+      }
+    }
     
     if (!apiKey) {
-      throw new Error('NASA API key not found. Please set NASA_API_KEY in environment variable or .env file');
+      throw new Error('NASA API key not found. Please set NASA_API_KEY in .env file');
     }
     
     console.log(`Using NASA API key: ${apiKey.substring(0, 5)}...`);
@@ -67,11 +79,23 @@ export async function jplApiRequest(
 ) {
   try {
     // JPL endpoints use the same NASA API key as other NASA APIs
-    const apiKey = process.env.NASA_API_KEY;
+    let apiKey = process.env.NASA_API_KEY;
+    
+    // If not found, try loading from .env file with explicit path
+    if (!apiKey) {
+      try {
+        const envPath = path.resolve(process.cwd(), '.env');
+        dotenv.config({ path: envPath });
+        apiKey = process.env.NASA_API_KEY;
+        console.log(`Attempted to load API key from ${envPath}`);
+      } catch (error) {
+        console.error('Error loading .env file:', error);
+      }
+    }
     
     if (!apiKey) {
       console.log('Environment variables:', JSON.stringify(process.env, null, 2));
-      throw new Error(`NASA API key not found. Please set NASA_API_KEY in environment variable or .env file. All env vars: ${Object.keys(process.env).join(', ')}`);
+      throw new Error(`NASA API key not found. Please set NASA_API_KEY in .env file`);
     }
     
     const paramsWithKey = { ...params, api_key: apiKey };

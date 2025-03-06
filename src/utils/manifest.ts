@@ -64,23 +64,19 @@ export function getManifest(): MCPManifest {
       // NASA EPIC API
       {
         name: 'epic',
-        description: 'Get Earth Polychromatic Imaging Camera data',
+        description: 'Access Earth Polychromatic Imaging Camera data',
         endpoint: '/nasa/epic',
         schema: {
           type: 'object',
           properties: {
             collection: {
               type: 'string',
-              enum: ['natural', 'enhanced'],
-              description: 'The EPIC collection to search (natural or enhanced)'
+              description: 'Image collection (natural or enhanced)',
+              enum: ['natural', 'enhanced']
             },
             date: {
               type: 'string',
-              description: 'The date of the EPIC imagery (YYYY-MM-DD format)'
-            },
-            all: {
-              type: 'boolean',
-              description: 'Whether to return all available imagery'
+              description: 'Date of the image (YYYY-MM-DD)'
             }
           }
         }
@@ -148,14 +144,14 @@ export function getManifest(): MCPManifest {
       {
         name: 'marsRover',
         description: 'Access Mars Rover photos',
-        endpoint: '/nasa/mars-rover',
+        endpoint: '/nasa/mars_rover',
         schema: {
           type: 'object',
           properties: {
             rover: {
               type: 'string',
-              enum: ['curiosity', 'opportunity', 'perseverance', 'spirit'],
-              description: 'Mars rover name'
+              description: 'Name of the rover (curiosity, opportunity, spirit, perseverance)',
+              enum: ['curiosity', 'opportunity', 'spirit', 'perseverance']
             },
             sol: {
               type: 'integer',
