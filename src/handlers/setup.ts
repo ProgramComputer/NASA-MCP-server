@@ -5,7 +5,7 @@ import axios from 'axios';
 // NASA API handlers
 import { nasaApodHandler, apodParamsSchema, ApodParams } from './nasa/apod';
 import { nasaEpicHandler, epicParamsSchema, EpicParams } from './nasa/epic';
-import { neoParamsSchema, NeoParams } from './nasa/simple-neo';
+import { neoParamsSchema, NeoParams } from './nasa/neo';
 import { nasaGibsHandler, gibsParamsSchema, GibsParams } from './nasa/gibs';
 import { nasaCmrHandler, cmrParamsSchema, CmrParams } from './nasa/cmr';
 import { nasaFirmsHandler, firmsParamsSchema, FirmsParams } from './nasa/firms';

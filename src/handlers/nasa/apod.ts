@@ -32,10 +32,10 @@ export async function nasaApodHandler(params: ApodParams) {
           type: "text",
           text: processedResult.summary
         },
+        // Instead of trying to include images directly, include them as text with URLs
         ...processedResult.images.map(img => ({
-          type: "image",
-          data: img.data,
-          mimeType: "image/jpeg"
+          type: "text",
+          text: `![${img.title}](${img.data})`
         }))
       ],
       isError: false
@@ -56,48 +56,37 @@ export async function nasaApodHandler(params: ApodParams) {
 }
 
 /**
- * Process APOD API results, storing images as resources and preparing a summary
+ * Process APOD API result
+ * Convert to resource and return formatted data
  */
 function processApodResult(result: any) {
-  // Handle both single image and collection of images
-  const items = Array.isArray(result) ? result : [result];
-  let summary = '';
-  const images: { id: string; data: string }[] = [];
+  // Handle both single result and array of results
+  const results = Array.isArray(result) ? result : [result];
   
-  items.forEach((item, index) => {
+  let summary = '';
+  const images: any[] = [];
+  
+  results.forEach((apod) => {
+    // Create a unique ID for this APOD entry
+    const apodId = `nasa://apod/image?date=${apod.date}`;
+    
+    // Store as a resource
+    addResource(apodId, {
+      name: `Astronomy Picture of the Day - ${apod.title}`,
+      mimeType: 'application/json',
+      text: JSON.stringify(apod, null, 2)
+    });
+    
     // Add to summary text
-    summary += `\n\n${index > 0 ? '---\n\n' : ''}`;
-    summary += `# ${item.title} (${item.date})\n\n`;
-    summary += `${item.explanation}\n\n`;
+    summary += `## ${apod.title} (${apod.date})\n\n${apod.explanation}\n\n`;
     
-    if (item.copyright) {
-      summary += `Copyright: ${item.copyright}\n\n`;
-    }
-    
-    // Store image URL for display
-    if (item.url) {
-      summary += `[View Image](${item.url})\n`;
-      
-      // For actual images (not videos), we could fetch and convert to base64
-      // But for simplicity, we'll just reference the URL
-      if (!item.media_type || item.media_type === 'image') {
-        const imageId = `apod-${item.date}`;
-        // Note: In a real implementation, you'd fetch the image
-        // and convert to base64 for direct embedding
-        
-        // Placeholder for image processing
-        // images.push({
-        //   id: imageId,
-        //   data: fetchedImageData
-        // });
-        
-        // For now, just store the URL as a resource
-        addResource(`nasa://apod/${imageId}`, {
-          name: `APOD: ${item.title} (${item.date})`,
-          mimeType: 'text/plain',
-          text: item.url
-        });
-      }
+    // Add image info if available
+    if (apod.url) {
+      summary += `Image URL: ${apod.url}\n\n`;
+      images.push({
+        data: apod.url,
+        title: apod.title
+      });
     }
   });
   
@@ -107,5 +96,5 @@ function processApodResult(result: any) {
   };
 }
 
-// Default export for dynamic import in the tool handler
+// Export the handler function directly as default
 export default nasaApodHandler; 
