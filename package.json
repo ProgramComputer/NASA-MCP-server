@@ -3,8 +3,14 @@
   "version": "1.0.0",
   "description": "Model Context Protocol (MCP) server for NASA APIs",
   "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "nasa-mcp-server": "dist/index.js"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && shx chmod +x dist/*.js",
     "start": "node dist/index.js",
     "start:sse": "node dist/sse-server.js",
     "dev": "tsx watch src/index.ts",
@@ -22,7 +28,15 @@
     "typescript"
   ],
   "author": "",
-  "license": "MIT",
+  "license": "ISC",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ProgramComputer/NASA-MCP-server.git"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "",
     "@modelcontextprotocol/sdk": "^1.6.1",
@@ -37,8 +51,12 @@
     "@types/express": "",
     "@types/jest": "",
     "@types/node": "",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "cross-env": "^7.0.3",
+    "eslint": "^8.57.1",
     "jest": "",
+    "shx": "^0.4.0",
     "ts-jest": "",
     "ts-node": "",
     "typed-rpc": "^6.1.1",
