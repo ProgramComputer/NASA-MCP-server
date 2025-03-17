@@ -1,8 +1,8 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import dotenv from "dotenv";
-import { setupHandlers } from "./handlers/setup.js";
-import { setupEnvironment } from "./utils/env-setup.js";
+import { setupHandlers } from "./handlers/setup";
+import { setupEnvironment } from "./utils/env-setup";
 import { z } from "zod";
 import { 
   CallToolRequestSchema,
