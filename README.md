@@ -24,7 +24,7 @@ Big thanks to the MCP community for their support and guidance!
 ### Running with npx
 
 ```bash
-env NASA_API_KEY=YOUR_API_KEY npx -y @ProgramComputer/NASA-MCP-server
+env NASA_API_KEY=YOUR_API_KEY npx -y @programcomputer/nasa-mcp-server
 ```
 
 ### Using SuperGateway for Server-Sent Events (SSE)
@@ -53,17 +53,25 @@ Configuring Cursor 🖥️ Note: Requires Cursor version 0.45.6+
 
 To configure NASA MCP Server in Cursor:
 
-1. Open Cursor Settings
-2. Go to Features > MCP Servers
-3. Click "+ Add New MCP Server"
-4. Enter the following:  
-   * Name: "nasa-mcp" (or your preferred name)  
-   * Type: "command"  
-   * Command: `env NASA_API_KEY=your-api-key npx -y @ProgramComputer/NASA-MCP-server`
+Create or edit an `mcp.json` file in your Cursor configuration directory with the following content:
+
+```json
+{
+  "mcpServers": {
+    "nasa-mcp": {
+      "command": "npx",
+      "args": ["-y", "@programcomputer/nasa-mcp-server"],
+      "env": {
+        "NASA_API_KEY": "your-api-key"
+      }
+    }
+  }
+}
+```
 
 Replace `your-api-key` with your NASA API key from https://api.nasa.gov/.
 
-After adding, refresh the MCP server list to see the new NASA tools. The Composer Agent will automatically use NASA MCP when appropriate for space-related queries.
+After adding the configuration, restart Cursor to see the new NASA tools. The Composer Agent will automatically use NASA MCP when appropriate for space-related queries.
 
 ## Environment Variables
 
