@@ -19,9 +19,7 @@
     "test": "jest",
     "direct-test": "ts-node src/tests/direct-api-test.ts",
     "custom-test": "ts-node src/tests/custom-client/nasa-mcp-test.ts",
-    "simple-test": "ts-node src/tests/custom-client/simple-test.ts",
-    "test:apod-sse": "ts-node src/tests/custom-client/nasa-apod-sse-test.ts",
-    "test:apod-sse-esm": "node src/tests/custom-client/nasa-apod-sse-test.mjs"
+    "simple-test": "ts-node src/tests/custom-client/simple-test.ts"
   },
   "keywords": [
     "nasa",
