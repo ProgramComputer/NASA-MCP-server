@@ -340,7 +340,7 @@ async function startServer() {
       {
         name: "NASA MCP Server",
         description: "Model Context Protocol server for NASA APIs",
-        version: "1.0.0"
+        version: "1.0.2"
       },
       {
         capabilities: {
@@ -352,7 +352,8 @@ async function startServer() {
           },
           prompts: {
             list: allPrompts
-          }
+          },
+          logging: {}
         }
       }
     );
@@ -1023,7 +1024,10 @@ async function startServer() {
     const stdioTransport = new StdioServerTransport();
     await server.connect(stdioTransport);
     
-    console.log("Server started with stdio transport");
+    serverInstance?.sendLoggingMessage({
+      level: "info",
+      data: "Server started with stdio transport",
+    });
   } catch (error) {
     console.error("Error starting server:", error);
     process.exit(1);
@@ -1032,9 +1036,12 @@ async function startServer() {
 
 // Add a function to handle prompts
 async function handlePrompt(promptName: string, args: Record<string, any>) {
-  console.log(`Handling prompt: ${promptName} with args:`, args);
-  
   try {
+    serverInstance?.sendLoggingMessage({
+      level: "info",
+      data: `Handling prompt: ${promptName} with args: ${JSON.stringify(args)}`,
+    });
+    
     // Map the prompt name to the appropriate tool call
     const promptToToolMap: Record<string, string> = {
       "nasa/get-astronomy-picture": "nasa/apod",
@@ -1083,90 +1090,125 @@ async function handlePrompt(promptName: string, args: Record<string, any>) {
 
 // Add a function to handle tool calls
 async function handleToolCall(toolName: string, args: Record<string, any>) {
-  // This function will delegate to the appropriate handler based on the tool name
-  console.log(`Handling tool call for: ${toolName} with args:`, args);
-  
-  if (toolName.startsWith("nasa/")) {
-    // Extract the NASA API endpoint name
-    const endpoint = toolName.split("/")[1];
-    console.log(`NASA Endpoint: ${endpoint}`);
+  try {
+    serverInstance?.sendLoggingMessage({
+      level: "info",
+      data: `Handling tool call for: ${toolName} with args: ${JSON.stringify(args)}`,
+    });
     
-    try {
-      // Dynamic import for all NASA handlers
-      console.log(`Importing handler module: ./handlers/nasa/${endpoint}.js`);
-      const handlerModule = await import(`./handlers/nasa/${endpoint}.js`);
-      console.log("Handler module imported:", handlerModule);
+    if (toolName.startsWith("nasa/")) {
+      // Extract the NASA API endpoint name
+      const endpoint = toolName.split("/")[1];
       
-      // Try to find the handler function in various export formats
-      // 1. First check for a default export
-      if (typeof handlerModule.default === 'function') {
-        console.log("Found default export function, calling it");
-        return await handlerModule.default(args);
-      } 
-      // 2. Check for a function named after the endpoint (e.g., 'apodHandler')
-      else if (typeof handlerModule[`${endpoint}Handler`] === 'function') {
-        console.log(`Found named export ${endpoint}Handler function, calling it`);
-        return await handlerModule[`${endpoint}Handler`](args);
-      } 
-      // 3. Check for a function named with nasa prefix (e.g., 'nasaApodHandler')
-      else if (typeof handlerModule[`nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler`] === 'function') {
-        console.log(`Found named export nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler function, calling it`);
-        return await handlerModule[`nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler`](args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `NASA Endpoint: ${endpoint}`,
+      });
+      
+      try {
+        // Dynamic import for all NASA handlers
+        serverInstance?.sendLoggingMessage({
+          level: "info",
+          data: `Importing handler module: ./handlers/nasa/${endpoint}.js`,
+        });
+        const handlerModule = await import(`./handlers/nasa/${endpoint}.js`);
+        
+        serverInstance?.sendLoggingMessage({
+          level: "info",
+          data: `Handler module imported: ${JSON.stringify(Object.keys(handlerModule))}`,
+        });
+        
+        // Try to find the handler function in various export formats
+        // 1. First check for a default export
+        if (typeof handlerModule.default === 'function') {
+          serverInstance?.sendLoggingMessage({
+            level: "info",
+            data: "Found default export function, calling it",
+          });
+          return await handlerModule.default(args);
+        } 
+        // 2. Check for a function named after the endpoint (e.g., 'apodHandler')
+        else if (typeof handlerModule[`${endpoint}Handler`] === 'function') {
+          serverInstance?.sendLoggingMessage({
+            level: "info",
+            data: `Found named export ${endpoint}Handler function, calling it`,
+          });
+          return await handlerModule[`${endpoint}Handler`](args);
+        } 
+        // 3. Check for a function named with nasa prefix (e.g., 'nasaApodHandler')
+        else if (typeof handlerModule[`nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler`] === 'function') {
+          serverInstance?.sendLoggingMessage({
+            level: "info",
+            data: `Found named export nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler function, calling it`,
+          });
+          return await handlerModule[`nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler`](args);
+        }
+        // No usable export found
+        else {
+          serverInstance?.sendLoggingMessage({
+            level: "info",
+            data: `No handler function found in module: ${JSON.stringify(Object.keys(handlerModule))}`,
+          });
+          throw new Error(`No handler function found for NASA endpoint: ${endpoint}`);
+        }
+      } catch (importError) {
+        throw new Error(`Failed to import handler for NASA endpoint: ${endpoint}. Error: ${importError instanceof Error ? importError.message : String(importError)}`);
       }
-      // No usable export found
-      else {
-        console.log("No handler function found in module:", handlerModule);
-        throw new Error(`Handler for ${endpoint} does not have a usable export function`);
+    } else if (toolName.startsWith("jpl/")) {
+      // Extract the JPL API endpoint name
+      const endpoint = toolName.split("/")[1];
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `JPL Endpoint: ${endpoint}`,
+      });
+      
+      try {
+        // Dynamic import for JPL handlers
+        serverInstance?.sendLoggingMessage({
+          level: "info",
+          data: `Importing handler module: ./handlers/jpl/${endpoint}.js`,
+        });
+        const handlerModule = await import(`./handlers/jpl/${endpoint}.js`);
+        
+        // Try to find the handler function in various export formats
+        const handlerFunction = handlerModule.default || 
+                               handlerModule[`jpl${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler`] ||
+                               handlerModule[`${endpoint}Handler`];
+        
+        if (typeof handlerFunction === 'function') {
+          return await handlerFunction(args);
+        } else {
+          throw new Error(`Handler for ${endpoint} not found in module`);
+        }
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          content: [{
+            type: "text",
+            text: `Error executing JPL tool '${toolName}': ${errorMessage}`
+          }],
+          isError: true
+        };
       }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return {
-        content: [{
-          type: "text",
-          text: `Error executing tool '${toolName}': ${errorMessage}`
-        }],
-        isError: true
-      };
     }
-  } else if (toolName.startsWith("jpl/")) {
-    // Extract the JPL API endpoint name
-    const endpoint = toolName.split("/")[1];
-    console.log(`JPL Endpoint: ${endpoint}`);
     
-    try {
-      // Dynamic import for JPL handlers
-      console.log(`Importing handler module: ./handlers/jpl/${endpoint}.js`);
-      const handlerModule = await import(`./handlers/jpl/${endpoint}.js`);
-      
-      // Try to find the handler function in various export formats
-      const handlerFunction = handlerModule.default || 
-                             handlerModule[`jpl${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler`] ||
-                             handlerModule[`${endpoint}Handler`];
-      
-      if (typeof handlerFunction === 'function') {
-        return await handlerFunction(args);
-      } else {
-        throw new Error(`Handler for ${endpoint} not found in module`);
-      }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return {
-        content: [{
-          type: "text",
-          text: `Error executing JPL tool '${toolName}': ${errorMessage}`
-        }],
-        isError: true
-      };
-    }
+    return {
+      content: [{
+        type: "text",
+        text: `Unknown tool: ${toolName}`
+      }],
+      isError: true
+    };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      content: [{
+        type: "text",
+        text: `Error executing tool '${toolName}': ${errorMessage}`
+      }],
+      isError: true
+    };
   }
-  
-  return {
-    content: [{
-      type: "text",
-      text: `Unknown tool: ${toolName}`
-    }],
-    isError: true
-  };
 }
 
 // Utility function to add a resource (can be used by handlers to store results)
@@ -1194,7 +1236,10 @@ startServer().catch(error => {
 
 // Handle stdin close for graceful shutdown
 process.stdin.on("close", () => {
-  console.log("NASA MCP Server shutting down...");
+  serverInstance?.sendLoggingMessage({
+    level: "info",
+    data: "NASA MCP Server shutting down...",
+  });
   if (serverInstance) {
     serverInstance.close();
   }
@@ -1216,71 +1261,113 @@ export function registerMcpTools() {
     
     // Register each NASA API as an MCP tool
     registerGlobalTool('mcp__nasaapod', async (args: Record<string, any>) => {
-      console.log('MCP NASA APOD called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA APOD called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/apod', args);
     });
 
     registerGlobalTool('mcp__nasaneo', async (args: Record<string, any>) => {
-      console.log('MCP NASA NEO called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA NEO called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/neo', args);
     });
 
     registerGlobalTool('mcp__nasaepic', async (args: Record<string, any>) => {
-      console.log('MCP NASA EPIC called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA EPIC called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/epic', args);
     });
 
     registerGlobalTool('mcp__nasagibs', async (args: Record<string, any>) => {
-      console.log('MCP NASA GIBS called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA GIBS called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/gibs', args);
     });
 
     registerGlobalTool('mcp__nasacmr', async (args: Record<string, any>) => {
-      console.log('MCP NASA CMR called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA CMR called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/cmr', args);
     });
 
     registerGlobalTool('mcp__nasafirms', async (args: Record<string, any>) => {
-      console.log('MCP NASA FIRMS called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA FIRMS called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/firms', args);
     });
 
     registerGlobalTool('mcp__nasaimages', async (args: Record<string, any>) => {
-      console.log('MCP NASA Images called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA Images called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/images', args);
     });
 
     registerGlobalTool('mcp__nasaexoplanet', async (args: Record<string, any>) => {
-      console.log('MCP NASA Exoplanet called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA Exoplanet called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/exoplanet', args);
     });
 
     registerGlobalTool('mcp__nasadonki', async (args: Record<string, any>) => {
-      console.log('MCP NASA DONKI called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA DONKI called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/donki', args);
     });
 
     registerGlobalTool('mcp__nasamars-rover', async (args: Record<string, any>) => {
-      console.log('MCP NASA Mars Rover called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA Mars Rover called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/mars-rover', args);
     });
 
     registerGlobalTool('mcp__nasaeonet', async (args: Record<string, any>) => {
-      console.log('MCP NASA EONET called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA EONET called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/eonet', args);
     });
 
     registerGlobalTool('mcp__nasasounds', async (args: Record<string, any>) => {
-      console.log('MCP NASA Sounds called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA Sounds called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/sounds', args);
     });
 
     registerGlobalTool('mcp__nasapower', async (args: Record<string, any>) => {
-      console.log('MCP NASA POWER called with args:', args);
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA POWER called with args: ${JSON.stringify(args)}`,
+      });
       return await handleToolCall('nasa/power', args);
     });
 
-    console.log('All NASA MCP tools registered');
+    serverInstance?.sendLoggingMessage({
+      level: "info",
+      data: "All NASA MCP tools registered",
+    });
   } catch (error) {
     console.error('Error registering MCP tools:', error);
   }

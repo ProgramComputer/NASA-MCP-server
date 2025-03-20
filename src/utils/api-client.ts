@@ -29,17 +29,20 @@ export async function nasaApiRequest(
         const envPath = path.resolve(process.cwd(), '.env');
         dotenv.config({ path: envPath });
         apiKey = process.env.NASA_API_KEY;
-        console.log(`Attempted to load API key from ${envPath}`);
       } catch (error) {
         console.error('Error loading .env file:', error);
       }
     }
     
     if (!apiKey) {
-      throw new Error('NASA API key not found. Please set NASA_API_KEY in .env file');
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: 'NASA API key not found. Please set NASA_API_KEY in .env file'
+        }]
+      };
     }
-    
-    console.log(`Using NASA API key: ${apiKey.substring(0, 5)}...`);
 
     const response = await axios({
       url: `${NASA_API_BASE_URL}${endpoint}`,
@@ -58,13 +61,31 @@ export async function nasaApiRequest(
     if (error.response) {
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx
-      throw new Error(`NASA API error (${error.response.status}): ${error.response.data.error?.message || 'Unknown error'}`);
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: `NASA API error (${error.response.status}): ${error.response.data.error?.message || 'Unknown error'}`
+        }]
+      };
     } else if (error.request) {
       // The request was made but no response was received
-      throw new Error(`NASA API network error: No response received or request timed out`);
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: `NASA API network error: No response received or request timed out`
+        }]
+      };
     } else {
       // Something happened in setting up the request that triggered an Error
-      throw new Error(`NASA API request error: ${error.message}`);
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: `NASA API request error: ${error.message}`
+        }]
+      };
     }
   }
 }
@@ -87,15 +108,19 @@ export async function jplApiRequest(
         const envPath = path.resolve(process.cwd(), '.env');
         dotenv.config({ path: envPath });
         apiKey = process.env.NASA_API_KEY;
-        console.log(`Attempted to load API key from ${envPath}`);
       } catch (error) {
         console.error('Error loading .env file:', error);
       }
     }
     
     if (!apiKey) {
-      console.log('Environment variables:', JSON.stringify(process.env, null, 2));
-      throw new Error(`NASA API key not found. Please set NASA_API_KEY in .env file`);
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: 'NASA API key not found. Please set NASA_API_KEY in .env file'
+        }]
+      };
     }
     
     const paramsWithKey = { ...params, api_key: apiKey };
@@ -112,11 +137,29 @@ export async function jplApiRequest(
     console.error(`Error calling JPL API (${endpoint}):`, error.message);
     
     if (error.response) {
-      throw new Error(`JPL API error (${error.response.status}): ${error.response.data.message || 'Unknown error'}`);
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: `JPL API error (${error.response.status}): ${error.response.data.message || 'Unknown error'}`
+        }]
+      };
     } else if (error.request) {
-      throw new Error(`JPL API network error: No response received`);
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: `JPL API network error: No response received`
+        }]
+      };
     } else {
-      throw new Error(`JPL API request error: ${error.message}`);
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: `JPL API request error: ${error.message}`
+        }]
+      };
     }
   }
 } 

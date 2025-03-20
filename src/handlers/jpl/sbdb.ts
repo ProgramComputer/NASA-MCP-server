@@ -61,14 +61,23 @@ export async function jplSbdbHandler(params: SbdbParams) {
     // Make the request to SBDB API
     const response = await axios.get(url, { params: queryParams });
     
-    return response.data;
+    // Return the response
+    return {
+      content: [{
+        type: "text",
+        text: `Retrieved data for small body "${params.sstr}".`
+      }],
+      isError: false
+    };
   } catch (error: any) {
     console.error('Error in JPL SBDB handler:', error);
     
-    if (error.name === 'ZodError') {
-      throw new Error(`Invalid request parameters: ${error.message}`);
-    }
-    
-    throw new Error(`API error: ${error.message}`);
+    return {
+      isError: true,
+      content: [{
+        type: "text",
+        text: `Error: ${error.message || 'An unexpected error occurred'}`
+      }]
+    };
   }
 } 

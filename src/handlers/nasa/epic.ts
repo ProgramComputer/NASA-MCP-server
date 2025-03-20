@@ -91,8 +91,6 @@ export async function nasaEpicHandler(params: EpicParams) {
       endpoint += `/date/${date}`;
     }
     
-    console.log(`Fetching EPIC data from: ${EPIC_API_BASE_URL}${endpoint}`);
-    
     // Try to fetch EPIC data with timeout of 30 seconds
     const response = await axios.get(`${EPIC_API_BASE_URL}${endpoint}`, { 
       timeout: 30000 
