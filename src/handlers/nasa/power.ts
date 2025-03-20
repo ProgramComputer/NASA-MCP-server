@@ -60,26 +60,22 @@ export async function nasaPowerHandler(params: PowerParams) {
     });
     
     // Return the result
-    return { result: response.data };
+    return {
+      content: [{
+        type: "text",
+        text: `Retrieved POWER data for coordinates (${params.latitude}, ${params.longitude}).`
+      }],
+      isError: false
+    };
   } catch (error: any) {
     console.error('Error in POWER handler:', error);
     
-    if (error.name === 'ZodError') {
-      throw {
-        error: {
-          type: 'invalid_request',
-          message: 'Invalid request parameters',
-          details: error.errors
-        }
-      };
-    }
-    
-    throw {
-      error: {
-        type: 'server_error',
-        message: error.message || 'An unexpected error occurred',
-        details: error.response?.data || null
-      }
+    return {
+      isError: true,
+      content: [{
+        type: "text",
+        text: `Error: ${error.message || 'An unexpected error occurred'}`
+      }]
     };
   }
 }

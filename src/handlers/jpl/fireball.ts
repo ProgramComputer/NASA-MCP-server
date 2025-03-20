@@ -26,7 +26,7 @@ export const fireballParamsSchema = z.object({
 export type FireballParams = z.infer<typeof fireballParamsSchema>;
 
 /**
- * Handle requests for JPL's Fireball Database
+ * Make a request to NASA JPL's Fireball API
  */
 export async function jplFireballHandler(params: FireballParams) {
   try {
@@ -36,14 +36,22 @@ export async function jplFireballHandler(params: FireballParams) {
     // Make the request to the Fireball API
     const response = await axios.get(url, { params });
     
-    return response.data;
+    return {
+      content: [{
+        type: "text",
+        text: `Retrieved ${response.data.count || 0} fireball events.`
+      }],
+      isError: false
+    };
   } catch (error: any) {
     console.error('Error in JPL Fireball handler:', error);
     
-    if (error.name === 'ZodError') {
-      throw new Error(`Invalid request parameters: ${error.message}`);
-    }
-    
-    throw new Error(`API error: ${error.message}`);
+    return {
+      isError: true,
+      content: [{
+        type: "text",
+        text: `Error: ${error.message || 'An unexpected error occurred'}`
+      }]
+    };
   }
 } 

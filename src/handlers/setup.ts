@@ -143,7 +143,6 @@ export function setupHandlers(context: Server) {
   context.setRequestHandler(
     z.object({ method: z.literal("nasa/subscribe") }),
     async (request) => {
-      console.log("Subscription request received", request);
       return { success: true };
     }
   );

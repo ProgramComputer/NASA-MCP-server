@@ -117,8 +117,6 @@ export async function nasaCmrHandler(params: CmrParams) {
       queryParams.include_facets = 'v2';
     }
     
-    console.log(`Searching CMR: ${CMR_API_BASE_URL}${endpoint} with params:`, queryParams);
-    
     // Make the request to CMR directly
     const response = await axios({
       url: `${CMR_API_BASE_URL}${endpoint}`,
@@ -211,26 +209,13 @@ export async function nasaCmrHandler(params: CmrParams) {
   } catch (error: any) {
     console.error('Error in CMR handler:', error);
     
-    if (error.name === 'ZodError') {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Invalid CMR request parameters: ${error.message}`
-          }
-        ],
-        isError: true
-      };
-    }
-    
+    // Proper error handling with isError flag
     return {
-      content: [
-        {
-          type: "text",
-          text: `Error searching NASA Common Metadata Repository: ${error.message || 'Unknown error'}`
-        }
-      ],
-      isError: true
+      isError: true,
+      content: [{
+        type: "text",
+        text: `Error searching NASA Common Metadata Repository: ${error.message || 'Unknown error'}`
+      }]
     };
   }
 }

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { jplApiRequest } from '../../utils/api-client';
 import { ScoutParams } from '../setup';
+import axios from 'axios';
 
 /**
  * Handle requests for JPL's Scout API
@@ -9,33 +10,26 @@ import { ScoutParams } from '../setup';
  */
 export async function jplScoutHandler(params: ScoutParams) {
   try {
-    // By default, get the most recent data if no specific parameters are provided
-    const endpoint = '/scout.api';
+    // Call the Scout API
+    const base_url = 'https://ssd-api.jpl.nasa.gov/scout.api';
+    const response = await axios.get(base_url, { params });
     
-    // Call the JPL Scout API
-    const result = await jplApiRequest(endpoint, params);
-    
-    // Return the result
-    return { result };
+    return {
+      content: [{
+        type: "text",
+        text: `Retrieved Scout data for object ${params.orbit_id || params.tdes || 'latest'}.`
+      }],
+      isError: false
+    };
   } catch (error: any) {
-    console.error('Error in Scout handler:', error);
+    console.error('Error in JPL Scout handler:', error);
     
-    if (error.name === 'ZodError') {
-      throw {
-        error: {
-          type: 'invalid_request',
-          message: 'Invalid request parameters',
-          details: error.errors
-        }
-      };
-    }
-    
-    throw {
-      error: {
-        type: 'server_error',
-        message: error.message || 'An unexpected error occurred',
-        details: error.response?.data || null
-      }
+    return {
+      isError: true,
+      content: [{
+        type: "text",
+        text: `Error: ${error.message || 'An unexpected error occurred'}`
+      }]
     };
   }
 } 

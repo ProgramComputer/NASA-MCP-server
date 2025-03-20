@@ -82,13 +82,15 @@ export async function nasaExoplanetHandler(params: ExoplanetParams) {
       };
     }
   } catch (error: any) {
-    console.error('Error in Exoplanet Archive handler:', error);
+    console.error('Error in Exoplanet handler:', error);
     
-    if (error.name === 'ZodError') {
-      throw new Error(`Invalid request parameters: ${error.message}`);
-    }
-    
-    throw new Error(`API error: ${error.message}`);
+    return {
+      isError: true,
+      content: [{
+        type: "text",
+        text: `Error accessing NASA Exoplanet Archive: ${error.message || 'Unknown error'}`
+      }]
+    };
   }
 }
 

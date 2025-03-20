@@ -43,8 +43,6 @@ export async function nasaEonetHandler(params: EonetParams) {
     
     // If we don't have any events, try again with broader parameters
     if (!response.data.events || response.data.events.length === 0) {
-      console.log('No EONET events found with current parameters, trying with broader criteria');
-      
       // Reset to the main events endpoint for maximum results
       endpointPath = '/v3/events';
       
@@ -69,8 +67,11 @@ export async function nasaEonetHandler(params: EonetParams) {
       });
       
       return { 
-        result: broadResponse.data,
-        note: 'Used broader search criteria due to no events found with original parameters'
+        content: [{
+          type: "text",
+          text: `Used broader search criteria due to no events found with original parameters. Found ${broadResponse.data.events?.length || 0} events.`
+        }],
+        isError: false
       };
     }
     
@@ -88,26 +89,22 @@ export async function nasaEonetHandler(params: EonetParams) {
     });
     
     // Return the original result
-    return { result: response.data };
+    return { 
+      content: [{
+        type: "text",
+        text: `Found ${response.data.events?.length || 0} EONET events.`
+      }],
+      isError: false
+    };
   } catch (error: any) {
     console.error('Error in EONET handler:', error);
     
-    if (error.name === 'ZodError') {
-      throw {
-        error: {
-          type: 'invalid_request',
-          message: 'Invalid request parameters',
-          details: error.errors
-        }
-      };
-    }
-    
-    throw {
-      error: {
-        type: 'server_error',
-        message: error.message || 'An unexpected error occurred',
-        details: error.response?.data || null
-      }
+    return {
+      isError: true,
+      content: [{
+        type: "text",
+        text: `Error: ${error.message || 'An unexpected error occurred'}`
+      }]
     };
   }
 }

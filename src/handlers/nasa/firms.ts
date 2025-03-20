@@ -23,11 +23,19 @@ export async function nasaFirmsHandler(params: FirmsParams) {
   try {
     const { latitude, longitude, radius, days, source } = params;
     
+    // Validate required parameters
+    if (!process.env.NASA_API_KEY) {
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: "Error: NASA API key is required for FIRMS requests"
+        }]
+      };
+    }
+    
     // Get the NASA API key from environment variables
     const apiKey = process.env.NASA_API_KEY;
-    if (!apiKey) {
-      throw new Error('NASA API key is required for FIRMS requests');
-    }
     
     // Construct request URL
     const url = FIRMS_API_BASE_URL;
@@ -105,26 +113,12 @@ export async function nasaFirmsHandler(params: FirmsParams) {
   } catch (error: any) {
     console.error('Error in FIRMS handler:', error);
     
-    if (error.name === 'ZodError') {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Invalid request parameters: ${error.message}`
-          }
-        ],
-        isError: true
-      };
-    }
-    
     return {
-      content: [
-        {
-          type: "text",
-          text: `API error: ${error.message}`
-        }
-      ],
-      isError: true
+      isError: true,
+      content: [{
+        type: "text",
+        text: `Error: ${error.message || 'An unexpected error occurred'}`
+      }]
     };
   }
 }

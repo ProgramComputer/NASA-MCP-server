@@ -297,14 +297,12 @@ const apodResult = await client.request({
   method: "nasa/apod", 
   params: {}
 });
-console.log(apodResult.result);
 
 // Example: Get Mars Rover photos
 const marsRoverResult = await client.request({
   method: "nasa/mars-rover",
   params: { rover: "curiosity", sol: 1000 }
 });
-console.log(marsRoverResult.result);
 
 // Example: Search for Near Earth Objects
 const neoResults = await client.request({
@@ -314,7 +312,6 @@ const neoResults = await client.request({
     end_date: '2023-01-07'
   }
 });
-console.log(neoResults.result);
 
 // Example: Get satellite imagery from GIBS
 const satelliteImage = await client.request({
@@ -324,7 +321,6 @@ const satelliteImage = await client.request({
     date: '2023-01-01'
   }
 });
-console.log(satelliteImage.result);
 
 // Example: Use the new POWER API
 const powerData = await client.request({
@@ -338,7 +334,6 @@ const powerData = await client.request({
     end: "20220107"
   }
 });
-console.log(powerData.result);
 ```
 
 ## Contributing
