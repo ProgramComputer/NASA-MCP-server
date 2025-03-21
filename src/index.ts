@@ -393,7 +393,7 @@ async function startServer() {
       {
         name: "NASA MCP Server",
         description: "Model Context Protocol server for NASA APIs",
-        version: "1.0.6"
+        version: "1.0.7"
       },
       {
         capabilities: {
@@ -508,6 +508,16 @@ async function startServer() {
               name: "JPL CAD",
               id: "jpl/cad",
               description: "Asteroid and comet close approaches to the planets in the past and future"
+            },
+            {
+              name: "JPL Sentry",
+              id: "jpl/sentry",
+              description: "JPL Sentry - NEO Earth impact risk assessment data"
+            },
+            {
+              name: "JPL Horizons",
+              id: "jpl/horizons",
+              description: "JPL Horizons - Solar system objects ephemeris data"
             }
           ]
         };
@@ -685,7 +695,8 @@ async function startServer() {
                     type: "boolean",
                     description: "Return URL of thumbnail for video content"
                   }
-                }
+                },
+                required: ["date"]
               }
             },
             {
@@ -706,7 +717,8 @@ async function startServer() {
                     type: "string",
                     description: "ID of a specific asteroid"
                   }
-                }
+                },
+                required: ["start_date", "end_date"]
               }
             },
             {
@@ -774,7 +786,8 @@ async function startServer() {
                     type: "string",
                     description: "Field to sort results by"
                   }
-                }
+                },
+                required: ["keyword"]
               }
             },
             {
@@ -795,7 +808,8 @@ async function startServer() {
                     type: "number",
                     description: "Number of days of data to retrieve"
                   }
-                }
+                },
+                required: ["latitude", "longitude"]
               }
             },
             {
@@ -824,7 +838,8 @@ async function startServer() {
                     type: "number",
                     description: "Page number for pagination"
                   }
-                }
+                },
+                required: ["q"]
               }
             },
             {
@@ -853,7 +868,8 @@ async function startServer() {
                     type: "number",
                     description: "Maximum number of results"
                   }
-                }
+                },
+                required: ["table"]
               }
             },
             {
@@ -874,7 +890,8 @@ async function startServer() {
                     type: "string",
                     description: "End date (YYYY-MM-DD)"
                   }
-                }
+                },
+                required: ["type"]
               }
             },
             {
@@ -903,7 +920,8 @@ async function startServer() {
                     type: "number",
                     description: "Page number for pagination"
                   }
-                }
+                },
+                required: ["rover"]
               }
             },
             {
@@ -969,7 +987,8 @@ async function startServer() {
                     type: "string",
                     description: "Response format (json, csv, etc.)"
                   }
-                }
+                },
+                required: ["parameters", "community", "longitude", "latitude", "start", "end"]
               }
             },
             {
@@ -986,7 +1005,8 @@ async function startServer() {
                     type: "boolean",
                     description: "Include close approach data"
                   }
-                }
+                },
+                required: ["sstr"]
               }
             },
             {
@@ -1297,7 +1317,7 @@ async function startServer() {
     // Mars Rover Handler
     server.setRequestHandler(
       z.object({ 
-        method: z.literal("nasa/mars_rover"),
+        method: z.literal("nasa/mars-rover"),
         params: z.object({
           rover: z.enum(['curiosity', 'opportunity', 'perseverance', 'spirit']),
           sol: z.number().int().nonnegative().optional(),
@@ -1307,7 +1327,7 @@ async function startServer() {
         }).optional()
       }),
       async (request) => {
-        return await handleToolCall("nasa/mars_rover", request.params || {});
+        return await handleToolCall("nasa/mars-rover", request.params || {});
       }
     );
     
@@ -1830,7 +1850,7 @@ export function registerMcpTools() {
         level: "info",
         data: `MCP NASA Mars Rover called with args: ${JSON.stringify(args)}`,
       });
-      return await handleToolCall('nasa/mars_rover', args);
+      return await handleToolCall('nasa/mars-rover', args);
     });
 
     registerGlobalTool('mcp__nasaeonet', async (args: Record<string, any>) => {
