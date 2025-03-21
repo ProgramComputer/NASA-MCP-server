@@ -7,6 +7,9 @@ dotenv.config();
 // Get API key
 const NASA_API_KEY = process.env.NASA_API_KEY || 'DEMO_KEY';
 
+// Track failed API calls
+const failedCalls: string[] = [];
+
 /**
  * Test function for direct NASA API calls
  */
@@ -31,6 +34,8 @@ async function testNasaEndpoint(name: string, url: string, params: Record<string
       console.error(`Status: ${error.response.status}`);
       console.error(`Data:`, error.response.data);
     }
+    // Add to failed calls list
+    failedCalls.push(name);
     return null;
   }
 }
@@ -137,7 +142,17 @@ async function runDirectTests() {
   );
   
   console.log("\nAll direct API tests completed!");
+  
+  // Print summary of failed calls
+  if (failedCalls.length > 0) {
+    console.log("\n❌ Failed API calls:");
+    failedCalls.forEach(name => console.log(`- ${name}`));
+  } else {
+    console.log("\n✅ All API calls were successful!");
+  }
 }
 
 // Run the tests
-runDirectTests(); 
+runDirectTests().catch(err => {
+  console.error("Unhandled error:", err);
+}); 
