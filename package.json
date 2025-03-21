@@ -1,6 +1,6 @@
 {
   "name": "@programcomputer/nasa-mcp-server",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Model Context Protocol (MCP) server for NASA APIs",
   "main": "dist/index.js",
   "files": [
