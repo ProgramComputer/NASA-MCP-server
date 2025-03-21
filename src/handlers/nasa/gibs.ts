@@ -61,7 +61,16 @@ export async function nasaGibsHandler(params: GibsParams) {
     addResource(resourceUri, {
       name: `NASA GIBS: ${layer} (${formattedDate})`,
       mimeType: `image/${format}`,
-      text: imageBase64
+      // Store metadata as text (optional)
+      text: JSON.stringify({
+        layer: layer,
+        date: formattedDate,
+        bbox: bboxParam,
+        width: 720,
+        height: 360
+      }),
+      // Store the actual image data as a blob
+      blob: Buffer.from(response.data)
     });
     
     // Return metadata and image data

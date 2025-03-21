@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import axios from 'axios';
 import { nasaApiRequest } from '../../utils/api-client';
 import { MarsRoverParams } from '../setup';
 import { addResource } from '../../index';
@@ -50,7 +51,7 @@ export async function nasaMarsRoverHandler(params: MarsRoverParams) {
 /**
  * Process the Mars Rover API results, register resources, and format the response
  */
-function processRoverResults(data: any, rover: string) {
+async function processRoverResults(data: any, rover: string) {
   const photos = data.photos || [];
   const resources = [];
   
@@ -69,24 +70,56 @@ function processRoverResults(data: any, rover: string) {
     const photoId = photo.id.toString();
     const resourceUri = `nasa://mars_rover/photo?rover=${rover}&id=${photoId}`;
     
-    // Register the resource
-    addResource(resourceUri, {
-      name: `Mars Rover Photo ${photoId}`,
-      mimeType: "image/jpeg",
-      text: JSON.stringify({
-        photo_id: photoId,
-        rover: rover,
-        camera: photo.camera?.name || 'Unknown',
-        img_src: photo.img_src,
-        earth_date: photo.earth_date,
-        sol: photo.sol
-      })
-    });
+    try {
+      // Fetch the actual image data
+      const imageResponse = await axios({
+        url: photo.img_src,
+        responseType: 'arraybuffer',
+        timeout: 30000
+      });
+      
+      // Convert image data to Base64
+      const imageBase64 = Buffer.from(imageResponse.data).toString('base64');
+      
+      // Register the resource with binary data in the blob field
+      addResource(resourceUri, {
+        name: `Mars Rover Photo ${photoId}`,
+        mimeType: "image/jpeg",
+        // Store metadata as text for reference
+        text: JSON.stringify({
+          photo_id: photoId,
+          rover: rover,
+          camera: photo.camera?.name || 'Unknown',
+          earth_date: photo.earth_date,
+          sol: photo.sol,
+          img_src: photo.img_src
+        }),
+        // Store the actual image data as a blob
+        blob: Buffer.from(imageResponse.data)
+      });
+    } catch (error) {
+      console.error(`Error fetching image for rover photo ${photoId}:`, error);
+      
+      // If fetching fails, register with just the metadata and URL
+      addResource(resourceUri, {
+        name: `Mars Rover Photo ${photoId}`,
+        mimeType: "image/jpeg",
+        text: JSON.stringify({
+          photo_id: photoId,
+          rover: rover,
+          camera: photo.camera?.name || 'Unknown',
+          img_src: photo.img_src,
+          earth_date: photo.earth_date,
+          sol: photo.sol,
+          fetch_error: (error as Error).message
+        })
+      });
+    }
     
     resources.push({
       title: `Mars Rover Photo ${photoId}`,
       description: `Photo taken by ${rover} rover on Mars`,
-      resource_uri: `nasa://mars_rover/photo?rover=${rover}&id=${photo.id}`
+      resource_uri: resourceUri
     });
   }
   
