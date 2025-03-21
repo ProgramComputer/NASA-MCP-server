@@ -29,16 +29,13 @@ export type PowerParams = z.infer<typeof powerParamsSchema>;
  */
 export async function nasaPowerHandler(params: PowerParams) {
   try {
-    // POWER API has a different endpoint structure than other NASA APIs
-    const POWER_API_URL = 'https://power.larc.nasa.gov/api/temporal/';
-    
-    // Determine the endpoint based on the community parameter
-    const { community, ...queryParams } = params;
+    // POWER API base URL
+    const POWER_API_URL = 'https://power.larc.nasa.gov/api/temporal/daily/point';
     
     // Call the NASA POWER API
     const response = await axios({
-      url: `${POWER_API_URL}${community}`,
-      params: queryParams,
+      url: POWER_API_URL,
+      params: params,
       method: 'GET'
     });
     
@@ -50,20 +47,36 @@ export async function nasaPowerHandler(params: PowerParams) {
     if (params.start) resourceParams.push(`start=${params.start}`);
     if (params.end) resourceParams.push(`end=${params.end}`);
     
-    const resourceId = `nasa://power/${community}?${resourceParams.join('&')}`;
+    const resourceId = `nasa://power/${params.community}?${resourceParams.join('&')}`;
     
     // Register the response as a resource
     addResource(resourceId, {
-      name: `NASA POWER ${community.toUpperCase()} Data${params.latitude !== undefined ? ` at (${params.latitude}, ${params.longitude})` : ''}`,
+      name: `NASA POWER ${params.community.toUpperCase()} Data${params.latitude !== undefined ? ` at (${params.latitude}, ${params.longitude})` : ''}`,
       mimeType: params.format === 'json' ? 'application/json' : 'text/plain',
       text: params.format === 'json' ? JSON.stringify(response.data, null, 2) : response.data
     });
+    
+    // Extract metadata for more informative response
+    let paramNames = '';
+    if (params.parameters) {
+      paramNames = params.parameters.split(',').join(', ');
+    }
+    
+    let locationStr = '';
+    if (params.latitude !== undefined && params.longitude !== undefined) {
+      locationStr = `(${params.latitude}, ${params.longitude})`;
+    }
+    
+    let dateRangeStr = '';
+    if (params.start && params.end) {
+      dateRangeStr = `from ${params.start} to ${params.end}`;
+    }
     
     // Return the result
     return {
       content: [{
         type: "text",
-        text: `Retrieved POWER data for coordinates (${params.latitude}, ${params.longitude}).`
+        text: `Retrieved POWER ${params.community.toUpperCase()} data${locationStr ? ` for location ${locationStr}` : ''}${dateRangeStr ? ` ${dateRangeStr}` : ''}${paramNames ? ` with parameters: ${paramNames}` : ''}.`
       }],
       isError: false
     };

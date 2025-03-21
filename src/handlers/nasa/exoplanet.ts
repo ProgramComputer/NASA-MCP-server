@@ -3,16 +3,16 @@ import axios from 'axios';
 import { addResource } from '../../index';
 
 // Base URL for NASA's Exoplanet Archive
-const EXOPLANET_API_URL = 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync';
+const EXOPLANET_API_URL = 'https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI';
 
 // Schema for validating Exoplanet Archive request parameters
 export const exoplanetParamsSchema = z.object({
   table: z.string(),
-  select: z.string().optional().default('*'),
+  select: z.string().optional(),
   where: z.string().optional(),
   order: z.string().optional(),
-  format: z.enum(['json', 'csv', 'tsv', 'votable']).optional().default('json'),
-  limit: z.number().int().min(1).max(1000).optional().default(100)
+  format: z.enum(['json', 'csv', 'ipac', 'xml']).optional().default('json'),
+  limit: z.number().int().min(1).max(1000).optional()
 });
 
 // Define the request parameter type based on the schema
@@ -25,41 +25,32 @@ export async function nasaExoplanetHandler(params: ExoplanetParams) {
   try {
     const { table, select, where, order, format, limit } = params;
     
-    // Construct the ADQL query - Use Oracle compatible syntax
-    let query = '';
+    // Construct the API parameters directly - nstedAPI has different params than TAP/sync
+    const apiParams: Record<string, any> = {
+      table: table,
+      format: format
+    };
     
-    // If we have a where clause and limit, we need to use a nested query to apply the ROWNUM properly
-    if (limit && where) {
-      query = `SELECT ${select} FROM ${table} WHERE ${where}`;
-      if (order) {
-        query += ` ORDER BY ${order}`;
-      }
-      // Oracle doesn't support LIMIT, use ROWNUM instead
-      query = `SELECT * FROM (${query}) WHERE ROWNUM <= ${limit}`;
-    } else if (limit) {
-      // Simple case with just a limit
-      query = `SELECT ${select} FROM ${table}`;
-      if (order) {
-        query += ` ORDER BY ${order}`;
-      }
-      query += ` WHERE ROWNUM <= ${limit}`;
-    } else {
-      // No limit specified
-      query = `SELECT ${select} FROM ${table}`;
-      if (where) {
-        query += ` WHERE ${where}`;
-      }
-      if (order) {
-        query += ` ORDER BY ${order}`;
-      }
+    // Add optional parameters if provided
+    if (select) {
+      apiParams.select = select;
+    }
+    
+    if (where) {
+      apiParams.where = where;
+    }
+    
+    if (order) {
+      apiParams.order = order;
+    }
+    
+    if (limit) {
+      apiParams.top = limit; // Use 'top' instead of 'limit' for this API
     }
     
     // Make the request to the Exoplanet Archive
     const response = await axios.get(EXOPLANET_API_URL, {
-      params: {
-        query,
-        format
-      }
+      params: apiParams
     });
     
     // Create a resource ID based on the query parameters
@@ -72,13 +63,38 @@ export async function nasaExoplanetHandler(params: ExoplanetParams) {
       text: format === 'json' ? JSON.stringify(response.data, null, 2) : response.data
     });
     
-    if (format === 'json') {
-      return { results: response.data };
+    // Format response based on the data type
+    if (Array.isArray(response.data) && response.data.length > 0) {
+      // If we got an array of results
+      const count = response.data.length;
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Found ${count} exoplanet records from the ${table} table.`
+          },
+          {
+            type: "text",
+            text: JSON.stringify(response.data.slice(0, 10), null, 2) + 
+                 (count > 10 ? `\n... and ${count - 10} more records` : '')
+          }
+        ],
+        isError: false
+      };
     } else {
-      // For non-JSON formats, return text data
+      // If we got a different format or empty results
       return { 
-        results: response.data,
-        format: format
+        content: [
+          {
+            type: "text",
+            text: `Exoplanet query complete. Results from ${table} table.`
+          },
+          {
+            type: "text",
+            text: typeof response.data === 'string' ? response.data : JSON.stringify(response.data, null, 2)
+          }
+        ],
+        isError: false
       };
     }
   } catch (error: any) {

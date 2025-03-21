@@ -427,14 +427,34 @@ async function startServer() {
               description: "Earth Observatory Natural Event Tracker"
             },
             {
-              name: "NASA Sounds",
-              id: "nasa/sounds",
-              description: "NASA Sounds and Ringtones"
-            },
-            {
               name: "NASA POWER",
               id: "nasa/power",
               description: "Prediction of Worldwide Energy Resources"
+            },
+            {
+              name: "JPL SBDB",
+              id: "jpl/sbdb",
+              description: "Small-Body DataBase (SBDB) - primarily orbital data on all known asteroids and comets"
+            },
+            {
+              name: "JPL Fireball",
+              id: "jpl/fireball",
+              description: "Fireball atmospheric impact data reported by US Government sensors"
+            },
+            {
+              name: "JPL JD Calendar",
+              id: "jpl/jd_cal",
+              description: "Julian Day number to/from calendar date/time converter"
+            },
+            {
+              name: "JPL NHATS",
+              id: "jpl/nhats",
+              description: "Human-accessible NEOs (Near-Earth Objects) data"
+            },
+            {
+              name: "JPL CAD",
+              id: "jpl/cad",
+              description: "Asteroid and comet close approaches to the planets in the past and future"
             }
           ]
         };
@@ -863,23 +883,6 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/sounds",
-              description: "NASA Sounds and Ringtones - audio from NASA missions",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  q: {
-                    type: "string",
-                    description: "Search query"
-                  },
-                  limit: {
-                    type: "number",
-                    description: "Maximum number of sounds to return"
-                  }
-                }
-              }
-            },
-            {
               name: "nasa/power",
               description: "Prediction of Worldwide Energy Resources - meteorological data",
               inputSchema: {
@@ -914,6 +917,263 @@ async function startServer() {
                     description: "Response format (json, csv, etc.)"
                   }
                 }
+              }
+            },
+            {
+              name: "jpl/sbdb",
+              description: "Small-Body Database (SBDB) - asteroid and comet data",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  sstr: {
+                    type: "string",
+                    description: "Search string (e.g., asteroid name, number, or designation)"
+                  },
+                  cad: {
+                    type: "boolean",
+                    description: "Include close approach data"
+                  }
+                }
+              }
+            },
+            {
+              name: "jpl/fireball",
+              description: "Fireball data - atmospheric impact events",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  limit: {
+                    type: "number",
+                    description: "Maximum number of results to return"
+                  },
+                  "date-min": {
+                    type: "string", 
+                    description: "Start date (YYYY-MM-DD)"
+                  },
+                  "date-max": {
+                    type: "string",
+                    description: "End date (YYYY-MM-DD)"
+                  }
+                }
+              }
+            },
+            {
+              name: "jpl/jd_cal",
+              description: "Julian Day number to/from calendar date/time converter",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  jd: {
+                    type: "string",
+                    description: "Julian date to convert to calendar date"
+                  },
+                  cd: {
+                    type: "string",
+                    description: "Calendar date to convert to Julian date (YYYY-MM-DD or YYYY-MM-DDThh:mm:ss format)"
+                  }
+                }
+              }
+            },
+            {
+              name: "jpl/nhats",
+              description: "Human-accessible NEOs (Near-Earth Objects) data",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  dv: {
+                    type: "number",
+                    description: "Minimum total delta-V (km/s). Values: 4-12, default: 12"
+                  },
+                  dur: {
+                    type: "number",
+                    description: "Minimum total mission duration (days). Values: 60-450, default: 450"
+                  },
+                  stay: {
+                    type: "number",
+                    description: "Minimum stay time (days). Values: 8, 16, 24, 32, default: 8"
+                  },
+                  launch: {
+                    type: "string",
+                    description: "Launch window (year range). Values: 2020-2025, 2025-2030, 2030-2035, 2035-2040, 2040-2045, 2020-2045, default: 2020-2045"
+                  },
+                  h: {
+                    type: "number",
+                    description: "Object's maximum absolute magnitude (mag). Values: 16-30"
+                  },
+                  occ: {
+                    type: "number",
+                    description: "Object's maximum orbit condition code. Values: 0-8"
+                  },
+                  des: {
+                    type: "string",
+                    description: "Object designation (e.g., '2000 SG344' or '433')"
+                  },
+                  spk: {
+                    type: "string",
+                    description: "Object SPK-ID (e.g., '2000433')"
+                  },
+                  plot: {
+                    type: "boolean",
+                    description: "Include base-64 encoded plot image"
+                  }
+                }
+              }
+            },
+            {
+              name: "jpl/cad",
+              description: "Asteroid and comet close approaches to the planets in the past and future",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  "dist-max": {
+                    type: "string",
+                    description: "Maximum approach distance (e.g., 0.05, 10LD). Default: 0.05 au"
+                  },
+                  "dist-min": {
+                    type: "string",
+                    description: "Minimum approach distance. Default: none"
+                  },
+                  "date-min": {
+                    type: "string",
+                    description: "Start date for search (YYYY-MM-DD). Default: now"
+                  },
+                  "date-max": {
+                    type: "string",
+                    description: "End date for search (YYYY-MM-DD). Default: +60 days"
+                  },
+                  "body": {
+                    type: "string",
+                    description: "Body to find close approaches to (e.g., Earth, Mars, ALL). Default: Earth"
+                  },
+                  "sort": {
+                    type: "string",
+                    description: "Sort field: date, dist, dist-min, v-inf, v-rel, h, object. Default: date"
+                  },
+                  "des": {
+                    type: "string",
+                    description: "Object designation (e.g., '2000 SG344' or '433')"
+                  },
+                  "spk": {
+                    type: "string",
+                    description: "Object SPK-ID (e.g., '2000433')"
+                  },
+                  "neo": {
+                    type: "boolean",
+                    description: "Limit to NEOs. Default: true"
+                  },
+                  "fullname": {
+                    type: "boolean",
+                    description: "Include full object name in result. Default: false"
+                  }
+                }
+              }
+            },
+            {
+              name: "jpl/sentry",
+              description: "JPL Sentry - NEO Earth impact risk assessment data",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  limit: {
+                    type: "number",
+                    description: "Maximum number of results to return"
+                  },
+                  "date-min": {
+                    type: "string",
+                    description: "Start date (YYYY-MM-DD)"
+                  },
+                  "date-max": {
+                    type: "string",
+                    description: "End date (YYYY-MM-DD)"
+                  },
+                  "des": {
+                    type: "string",
+                    description: "Object designation (e.g., '2011 AG5' or '29075')"
+                  },
+                  "spk": {
+                    type: "string",
+                    description: "Object SPK-ID"
+                  },
+                  "h-max": {
+                    type: "number",
+                    description: "Maximum absolute magnitude (size filter)"
+                  },
+                  "ps-min": {
+                    type: "string",
+                    description: "Minimum Palermo Scale value"
+                  },
+                  "ip-min": {
+                    type: "string",
+                    description: "Minimum impact probability"
+                  },
+                  "removed": {
+                    type: "boolean",
+                    description: "Get objects removed from Sentry monitoring"
+                  },
+                  "all": {
+                    type: "boolean",
+                    description: "Get all virtual impactors data"
+                  }
+                }
+              }
+            },
+            {
+              name: "jpl/horizons",
+              description: "JPL Horizons - Solar system objects ephemeris data",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  format: {
+                    type: "string",
+                    description: "Response format (json, text)",
+                    enum: ["json", "text"]
+                  },
+                  COMMAND: {
+                    type: "string",
+                    description: "Target object identifier (e.g., '499' for Mars, '1' for Ceres, 'C/2020 F3' for Comet NEOWISE)"
+                  },
+                  OBJ_DATA: {
+                    type: "string",
+                    description: "Include object data",
+                    enum: ["YES", "NO"]
+                  },
+                  MAKE_EPHEM: {
+                    type: "string",
+                    description: "Generate ephemeris",
+                    enum: ["YES", "NO"]
+                  },
+                  EPHEM_TYPE: {
+                    type: "string",
+                    description: "Type of ephemeris (OBSERVER, VECTORS, ELEMENTS)",
+                    enum: ["OBSERVER", "VECTORS", "ELEMENTS"]
+                  },
+                  CENTER: {
+                    type: "string",
+                    description: "Coordinate center (e.g., '500@399' for Earth)"
+                  },
+                  START_TIME: {
+                    type: "string",
+                    description: "Start time for ephemeris (e.g., '2023-01-01')"
+                  },
+                  STOP_TIME: {
+                    type: "string",
+                    description: "Stop time for ephemeris (e.g., '2023-01-02')"
+                  },
+                  STEP_SIZE: {
+                    type: "string",
+                    description: "Step size for ephemeris points (e.g., '1d' for daily, '1h' for hourly)"
+                  },
+                  QUANTITIES: {
+                    type: "string",
+                    description: "Observable quantities to include (e.g., 'A' for all, or '1,2,20,23' for specific ones)"
+                  },
+                  OUT_UNITS: {
+                    type: "string",
+                    description: "Output units for vector tables",
+                    enum: ["KM-S", "AU-D", "KM-D"]
+                  }
+                },
+                required: ["COMMAND"]
               }
             }
           ]
@@ -978,6 +1238,155 @@ async function startServer() {
       }),
       async (request) => {
         return await handleToolCall("nasa/epic", request.params || {});
+      }
+    );
+    
+    // Mars Rover Handler
+    server.setRequestHandler(
+      z.object({ 
+        method: z.literal("nasa/mars_rover"),
+        params: z.object({
+          rover: z.enum(['curiosity', 'opportunity', 'perseverance', 'spirit']),
+          sol: z.number().int().nonnegative().optional(),
+          earth_date: z.string().optional(),
+          camera: z.string().optional(),
+          page: z.number().int().positive().optional()
+        }).optional()
+      }),
+      async (request) => {
+        return await handleToolCall("nasa/mars_rover", request.params || {});
+      }
+    );
+    
+    // GIBS Handler
+    server.setRequestHandler(
+      z.object({ 
+        method: z.literal("nasa/gibs"),
+        params: z.object({
+          layer: z.string(),
+          date: z.string(),
+          format: z.enum(['png', 'jpg', 'jpeg']).optional(),
+          resolution: z.number().optional()
+        }).optional()
+      }),
+      async (request) => {
+        return await handleToolCall("nasa/gibs", request.params || {});
+      }
+    );
+    
+    // CMR Handler
+    server.setRequestHandler(
+      z.object({ 
+        method: z.literal("nasa/cmr"),
+        params: z.object({
+          keyword: z.string().optional(),
+          limit: z.number().optional(),
+          page: z.number().optional(),
+          sort_key: z.string().optional()
+        }).optional()
+      }),
+      async (request) => {
+        return await handleToolCall("nasa/cmr", request.params || {});
+      }
+    );
+    
+    // FIRMS Handler
+    server.setRequestHandler(
+      z.object({ 
+        method: z.literal("nasa/firms"),
+        params: z.object({
+          days: z.number().optional(),
+          latitude: z.number().optional(),
+          longitude: z.number().optional()
+        }).optional()
+      }),
+      async (request) => {
+        return await handleToolCall("nasa/firms", request.params || {});
+      }
+    );
+    
+    // Images Handler
+    server.setRequestHandler(
+      z.object({ 
+        method: z.literal("nasa/images"),
+        params: z.object({
+          q: z.string(),
+          page: z.number().optional(),
+          media_type: z.string().optional(),
+          year_start: z.string().optional(),
+          year_end: z.string().optional()
+        }).optional()
+      }),
+      async (request) => {
+        return await handleToolCall("nasa/images", request.params || {});
+      }
+    );
+    
+    // Exoplanet Handler
+    server.setRequestHandler(
+      z.object({ 
+        method: z.literal("nasa/exoplanet"),
+        params: z.object({
+          table: z.string().optional(),
+          select: z.string().optional(),
+          where: z.string().optional(),
+          order: z.string().optional(),
+          limit: z.number().optional()
+        }).optional()
+      }),
+      async (request) => {
+        return await handleToolCall("nasa/exoplanet", request.params || {});
+      }
+    );
+    
+    // DONKI Handler
+    server.setRequestHandler(
+      z.object({ 
+        method: z.literal("nasa/donki"),
+        params: z.object({
+          type: z.string(),
+          startDate: z.string().optional(),
+          endDate: z.string().optional()
+        }).optional()
+      }),
+      async (request) => {
+        return await handleToolCall("nasa/donki", request.params || {});
+      }
+    );
+    
+    // EONET Handler
+    server.setRequestHandler(
+      z.object({ 
+        method: z.literal("nasa/eonet"),
+        params: z.object({
+          category: z.string().optional(),
+          days: z.number().optional(),
+          source: z.string().optional(),
+          status: z.string().optional(),
+          limit: z.number().optional()
+        }).optional()
+      }),
+      async (request) => {
+        return await handleToolCall("nasa/eonet", request.params || {});
+      }
+    );
+    
+    // POWER Handler
+    server.setRequestHandler(
+      z.object({ 
+        method: z.literal("nasa/power"),
+        params: z.object({
+          community: z.string(),
+          parameters: z.union([z.string(), z.array(z.string())]),
+          latitude: z.number(),
+          longitude: z.number(),
+          start: z.string(),
+          end: z.string(),
+          format: z.string().optional()
+        }).optional()
+      }),
+      async (request) => {
+        return await handleToolCall("nasa/power", request.params || {});
       }
     );
     
@@ -1105,13 +1514,21 @@ async function handleToolCall(toolName: string, args: Record<string, any>) {
         data: `NASA Endpoint: ${endpoint}`,
       });
       
+      // Normalize endpoint name to match filename (convert hyphens to underscores)
+      const normalizedEndpoint = endpoint.replace(/-/g, '_');
+      
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `NASA Endpoint (normalized): ${normalizedEndpoint}`,
+      });
+      
       try {
         // Dynamic import for all NASA handlers
         serverInstance?.sendLoggingMessage({
           level: "info",
-          data: `Importing handler module: ./handlers/nasa/${endpoint}.js`,
+          data: `Importing handler module: ./handlers/nasa/${normalizedEndpoint}.js`,
         });
-        const handlerModule = await import(`./handlers/nasa/${endpoint}.js`);
+        const handlerModule = await import(`./handlers/nasa/${normalizedEndpoint}.js`);
         
         serverInstance?.sendLoggingMessage({
           level: "info",
@@ -1128,20 +1545,20 @@ async function handleToolCall(toolName: string, args: Record<string, any>) {
           return await handlerModule.default(args);
         } 
         // 2. Check for a function named after the endpoint (e.g., 'apodHandler')
-        else if (typeof handlerModule[`${endpoint}Handler`] === 'function') {
+        else if (typeof handlerModule[`${normalizedEndpoint}Handler`] === 'function') {
           serverInstance?.sendLoggingMessage({
             level: "info",
-            data: `Found named export ${endpoint}Handler function, calling it`,
+            data: `Found named export ${normalizedEndpoint}Handler function, calling it`,
           });
-          return await handlerModule[`${endpoint}Handler`](args);
+          return await handlerModule[`${normalizedEndpoint}Handler`](args);
         } 
         // 3. Check for a function named with nasa prefix (e.g., 'nasaApodHandler')
-        else if (typeof handlerModule[`nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler`] === 'function') {
+        else if (typeof handlerModule[`nasa${normalizedEndpoint.charAt(0).toUpperCase() + normalizedEndpoint.slice(1)}Handler`] === 'function') {
           serverInstance?.sendLoggingMessage({
             level: "info",
-            data: `Found named export nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler function, calling it`,
+            data: `Found named export nasa${normalizedEndpoint.charAt(0).toUpperCase() + normalizedEndpoint.slice(1)}Handler function, calling it`,
           });
-          return await handlerModule[`nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)}Handler`](args);
+          return await handlerModule[`nasa${normalizedEndpoint.charAt(0).toUpperCase() + normalizedEndpoint.slice(1)}Handler`](args);
         }
         // No usable export found
         else {
@@ -1149,10 +1566,10 @@ async function handleToolCall(toolName: string, args: Record<string, any>) {
             level: "info",
             data: `No handler function found in module: ${JSON.stringify(Object.keys(handlerModule))}`,
           });
-          throw new Error(`No handler function found for NASA endpoint: ${endpoint}`);
+          throw new Error(`No handler function found for NASA endpoint: ${normalizedEndpoint}`);
         }
       } catch (importError) {
-        throw new Error(`Failed to import handler for NASA endpoint: ${endpoint}. Error: ${importError instanceof Error ? importError.message : String(importError)}`);
+        throw new Error(`Failed to import handler for NASA endpoint: ${normalizedEndpoint}. Error: ${importError instanceof Error ? importError.message : String(importError)}`);
       }
     } else if (toolName.startsWith("jpl/")) {
       // Extract the JPL API endpoint name
@@ -1332,12 +1749,12 @@ export function registerMcpTools() {
       return await handleToolCall('nasa/donki', args);
     });
 
-    registerGlobalTool('mcp__nasamars-rover', async (args: Record<string, any>) => {
+    registerGlobalTool('mcp__nasamars_rover', async (args: Record<string, any>) => {
       serverInstance?.sendLoggingMessage({
         level: "info",
         data: `MCP NASA Mars Rover called with args: ${JSON.stringify(args)}`,
       });
-      return await handleToolCall('nasa/mars-rover', args);
+      return await handleToolCall('nasa/mars_rover', args);
     });
 
     registerGlobalTool('mcp__nasaeonet', async (args: Record<string, any>) => {
@@ -1348,20 +1765,69 @@ export function registerMcpTools() {
       return await handleToolCall('nasa/eonet', args);
     });
 
-    registerGlobalTool('mcp__nasasounds', async (args: Record<string, any>) => {
-      serverInstance?.sendLoggingMessage({
-        level: "info",
-        data: `MCP NASA Sounds called with args: ${JSON.stringify(args)}`,
-      });
-      return await handleToolCall('nasa/sounds', args);
-    });
-
     registerGlobalTool('mcp__nasapower', async (args: Record<string, any>) => {
       serverInstance?.sendLoggingMessage({
         level: "info",
         data: `MCP NASA POWER called with args: ${JSON.stringify(args)}`,
       });
       return await handleToolCall('nasa/power', args);
+    });
+
+    // Register JPL tools
+    registerGlobalTool('mcp__jplsbdb', async (args: Record<string, any>) => {
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP JPL SBDB called with args: ${JSON.stringify(args)}`,
+      });
+      return await handleToolCall('jpl/sbdb', args);
+    });
+
+    registerGlobalTool('mcp__jplfireball', async (args: Record<string, any>) => {
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP JPL Fireball called with args: ${JSON.stringify(args)}`,
+      });
+      return await handleToolCall('jpl/fireball', args);
+    });
+
+    registerGlobalTool('mcp__jpljd_cal', async (args: Record<string, any>) => {
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP JPL JD Calendar called with args: ${JSON.stringify(args)}`,
+      });
+      return await handleToolCall('jpl/jd_cal', args);
+    });
+
+    registerGlobalTool('mcp__jplnhats', async (args: Record<string, any>) => {
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP JPL NHATS called with args: ${JSON.stringify(args)}`,
+      });
+      return await handleToolCall('jpl/nhats', args);
+    });
+
+    registerGlobalTool('mcp__jplcad', async (args: Record<string, any>) => {
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP JPL CAD called with args: ${JSON.stringify(args)}`,
+      });
+      return await handleToolCall('jpl/cad', args);
+    });
+
+    registerGlobalTool('mcp__jplsentry', async (args: Record<string, any>) => {
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP JPL Sentry called with args: ${JSON.stringify(args)}`,
+      });
+      return await handleToolCall('jpl/sentry', args);
+    });
+
+    registerGlobalTool('mcp__jplhorizons', async (args: Record<string, any>) => {
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP JPL Horizons called with args: ${JSON.stringify(args)}`,
+      });
+      return await handleToolCall('jpl/horizons', args);
     });
 
     serverInstance?.sendLoggingMessage({
