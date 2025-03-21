@@ -1,6 +1,6 @@
 {
   "name": "@programcomputer/nasa-mcp-server",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Model Context Protocol (MCP) server for NASA APIs",
   "main": "dist/index.js",
   "files": [
@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "",
-    "@modelcontextprotocol/sdk": "^1.6.1",
+    "@modelcontextprotocol/sdk": "^1.7.0",
     "axios": "",
     "cors": "",
     "dotenv": "",

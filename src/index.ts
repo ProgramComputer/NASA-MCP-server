@@ -11,6 +11,9 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
+import path from 'path';
+import { nasaApiRequest, jplApiRequest } from './utils/api-client';
+import { apodParamsSchema } from './handlers/nasa/apod';
 
 // Load environment variables with enhanced setup
 setupEnvironment();
@@ -216,8 +219,23 @@ const nasaPrompts = [
         required: false
       },
       {
-        name: "hd",
-        description: "Whether to return the high definition image URL",
+        name: "count",
+        description: "Number of random APODs to retrieve",
+        required: false
+      },
+      {
+        name: "start_date",
+        description: "Start date for date range search (YYYY-MM-DD)",
+        required: false
+      },
+      {
+        name: "end_date",
+        description: "End date for date range search (YYYY-MM-DD)",
+        required: false
+      },
+      {
+        name: "thumbs",
+        description: "Return URL of thumbnail for video content",
         required: false
       }
     ]
@@ -327,8 +345,43 @@ const jplPrompts = [
   }
 ];
 
+// Define the additional direct MCP prompts
+const mcpPrompts = [
+  {
+    name: "apod-daily",
+    description: "Get NASA's Astronomy Picture of the Day with a natural language prompt",
+    arguments: [
+      {
+        name: "date",
+        description: "The date of the APOD image to retrieve (YYYY-MM-DD format)",
+        required: false
+      },
+      {
+        name: "count",
+        description: "Number of random APODs to retrieve",
+        required: false
+      },
+      {
+        name: "start_date",
+        description: "Start date for date range search (YYYY-MM-DD)",
+        required: false
+      },
+      {
+        name: "end_date",
+        description: "End date for date range search (YYYY-MM-DD)",
+        required: false
+      },
+      {
+        name: "thumbs",
+        description: "Return URL of thumbnail for video content",
+        required: false
+      }
+    ]
+  }
+];
+
 // Combine all prompts
-const allPrompts = [...nasaPrompts, ...jplPrompts];
+const allPrompts = [...nasaPrompts, ...jplPrompts, ...mcpPrompts];
 
 async function startServer() {
   try {
@@ -340,7 +393,7 @@ async function startServer() {
       {
         name: "NASA MCP Server",
         description: "Model Context Protocol server for NASA APIs",
-        version: "1.0.5"
+        version: "1.0.6"
       },
       {
         capabilities: {
@@ -1425,6 +1478,29 @@ async function startServer() {
       async () => {
         return {
           resourceTemplates: resourceTemplates
+        };
+      }
+    );
+    
+    // Add a new MCP-compatible prompt for Astronomy Picture of the Day
+    server.setRequestHandler(
+      z.object({
+        method: z.literal("prompts/get"),
+        params: z.object({
+          name: z.literal("apod-daily"),
+          arguments: apodParamsSchema.partial().optional()
+        })
+      }),
+      async (request) => {
+        const params = request.params.arguments || {};
+        return {
+          messages: [{
+            role: "user",
+            content: {
+              type: "text",
+              text: `Show me the NASA Astronomy Picture of the Day${params.date ? ` for ${params.date}` : ''}${params.count ? ` (${params.count} random images)` : ''}${params.start_date && params.end_date ? ` from ${params.start_date} to ${params.end_date}` : ''}.`
+            }
+          }]
         };
       }
     );
