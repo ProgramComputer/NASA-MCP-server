@@ -22,7 +22,7 @@ export type EpicParams = z.infer<typeof epicParamsSchema>;
  * @param collection The collection type (natural or enhanced)
  * @returns Formatted results with summary and image data
  */
-function processEpicResults(epicData: any[], collection: string) {
+async function processEpicResults(epicData: any[], collection: string) {
   if (!Array.isArray(epicData) || epicData.length === 0) {
     return {
       summary: "No EPIC data available for the specified parameters.",
@@ -39,37 +39,79 @@ function processEpicResults(epicData: any[], collection: string) {
   const [year, month, day] = dateStr.split('-');
   
   // Format each image and register it as a resource
-  const images = epicData.map(img => {
+  const images = [];
+  
+  for (const img of epicData) {
     // Construct the image URL according to NASA's format
     const imageUrl = `${EPIC_IMAGE_BASE_URL}/${collection}/${year}/${month}/${day}/png/${img.image}.png`;
     
     // Create a unique resource URI for this image
     const resourceUri = `nasa://epic/image/${collection}/${img.identifier}`;
     
-    // Register this image as a resource
-    addResource(resourceUri, {
-      name: `NASA EPIC Earth Image - ${img.identifier}`,
-      mimeType: "image/png",
-      text: JSON.stringify({
-        id: img.identifier,
-        date: img.date,
+    try {
+      // Fetch the actual image data
+      const imageResponse = await axios({
+        url: imageUrl,
+        responseType: 'arraybuffer',
+        timeout: 30000
+      });
+      
+      // Register this image as a resource with binary data
+      addResource(resourceUri, {
+        name: `NASA EPIC Earth Image - ${img.identifier}`,
+        mimeType: "image/png",
+        // Store metadata as text
+        text: JSON.stringify({
+          id: img.identifier,
+          date: img.date,
+          caption: img.caption || "Earth view from DSCOVR satellite",
+          imageUrl: imageUrl,
+          centroid_coordinates: img.centroid_coordinates,
+          dscovr_j2000_position: img.dscovr_j2000_position,
+          lunar_j2000_position: img.lunar_j2000_position,
+          sun_j2000_position: img.sun_j2000_position,
+          attitude_quaternions: img.attitude_quaternions
+        }),
+        // Store actual image data as blob
+        blob: Buffer.from(imageResponse.data)
+      });
+      
+      images.push({
+        identifier: img.identifier,
         caption: img.caption || "Earth view from DSCOVR satellite",
         imageUrl: imageUrl,
-        centroid_coordinates: img.centroid_coordinates,
-        dscovr_j2000_position: img.dscovr_j2000_position,
-        lunar_j2000_position: img.lunar_j2000_position,
-        sun_j2000_position: img.sun_j2000_position,
-        attitude_quaternions: img.attitude_quaternions
-      })
-    });
-    
-    return {
-      identifier: img.identifier,
-      caption: img.caption || "Earth view from DSCOVR satellite",
-      imageUrl: imageUrl,
-      resourceUri: resourceUri
-    };
-  });
+        resourceUri: resourceUri
+      });
+    } catch (error) {
+      console.error(`Error fetching EPIC image ${img.identifier}:`, error);
+      
+      // If fetch fails, register with just the metadata
+      addResource(resourceUri, {
+        name: `NASA EPIC Earth Image - ${img.identifier}`,
+        mimeType: "image/png",
+        text: JSON.stringify({
+          id: img.identifier,
+          date: img.date,
+          caption: img.caption || "Earth view from DSCOVR satellite",
+          imageUrl: imageUrl,
+          centroid_coordinates: img.centroid_coordinates,
+          dscovr_j2000_position: img.dscovr_j2000_position,
+          lunar_j2000_position: img.lunar_j2000_position,
+          sun_j2000_position: img.sun_j2000_position,
+          attitude_quaternions: img.attitude_quaternions,
+          fetch_error: (error as Error).message
+        })
+      });
+      
+      images.push({
+        identifier: img.identifier,
+        caption: img.caption || "Earth view from DSCOVR satellite",
+        imageUrl: imageUrl,
+        resourceUri: resourceUri,
+        error: "Failed to fetch image data"
+      });
+    }
+  }
   
   return {
     summary: `EPIC Earth imagery from ${date} - Collection: ${collection} - ${images.length} images available`,
@@ -100,7 +142,7 @@ export async function nasaEpicHandler(params: EpicParams) {
     
     // Process the results
     if (epicData && epicData.length > 0) {
-      const results = processEpicResults(epicData, collection);
+      const results = await processEpicResults(epicData, collection);
       
       return {
         content: [
