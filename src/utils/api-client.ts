@@ -99,35 +99,40 @@ export async function jplApiRequest(
   options: AxiosRequestConfig = {}
 ) {
   try {
-    // JPL endpoints use the same NASA API key as other NASA APIs
+    // JPL endpoints might use the NASA API key, but check exceptions like Scout
     let apiKey = process.env.NASA_API_KEY;
-    
-    // If not found, try loading from .env file with explicit path
-    if (!apiKey) {
+    let paramsToSend = { ...params }; // Start with original params
+
+    // Only add api_key if required and available, and not for scout.api
+    if (endpoint !== '/scout.api' && apiKey) {
+      paramsToSend.api_key = apiKey;
+    } else if (endpoint !== '/scout.api' && !apiKey) {
+      // If other JPL endpoints require a key but it's missing, try loading .env
       try {
         const envPath = path.resolve(process.cwd(), '.env');
         dotenv.config({ path: envPath });
         apiKey = process.env.NASA_API_KEY;
+        if (apiKey) {
+          paramsToSend.api_key = apiKey;
+        } else {
+          // Return error if key is needed but not found AFTER trying .env
+          return {
+            isError: true,
+            content: [{
+              type: "text",
+              text: 'NASA API key not found for JPL endpoint. Please set NASA_API_KEY in .env file'
+            }]
+          };
+        }
       } catch (error) {
-        console.error('Error loading .env file:', error);
+        console.error('Error loading .env file for JPL key:', error);
+        // Proceed without key for now, endpoint might not strictly require it
       }
-    }
+    } // else: if endpoint is /scout.api, we intentionally DO NOT add the api_key
     
-    if (!apiKey) {
-      return {
-        isError: true,
-        content: [{
-          type: "text",
-          text: 'NASA API key not found. Please set NASA_API_KEY in .env file'
-        }]
-      };
-    }
-    
-    const paramsWithKey = { ...params, api_key: apiKey };
-
     const response = await axios({
       url: `${JPL_SSD_API_BASE_URL}${endpoint}`,
-      params: paramsWithKey,
+      params: paramsToSend, // Use the potentially modified params object
       timeout: 10000, // 10 second timeout
       ...options
     });

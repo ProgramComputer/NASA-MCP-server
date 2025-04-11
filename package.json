@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "",
-    "@modelcontextprotocol/sdk": "^1.7.0",
+    "@modelcontextprotocol/sdk": "^1.9.0",
     "axios": "",
     "cors": "",
     "dotenv": "",
