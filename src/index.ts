@@ -276,7 +276,7 @@ const nasaPrompts = [
 
 const jplPrompts = [
   {
-    name: "jpl/query-small-body-database",
+    name: "jpl_query-small-body-database",
     description: "Search the Small-Body Database for asteroids and comets matching specific criteria",
     arguments: [
       {
@@ -297,7 +297,7 @@ const jplPrompts = [
     ]
   },
   {
-    name: "jpl/find-close-approaches",
+    name: "jpl_find-close-approaches",
     description: "Find close approaches of asteroids and comets to Earth or other planets",
     arguments: [
       {
@@ -323,7 +323,7 @@ const jplPrompts = [
     ]
   },
   {
-    name: "jpl/get-fireball-data",
+    name: "jpl_get-fireball-data",
     description: "Retrieve data about fireballs detected by US Government sensors",
     arguments: [
       {
@@ -425,97 +425,97 @@ async function startServer() {
         return {
           apis: [
             {
-              name: "NASA Astronomy Picture of the Day",
+              name: "nasa_apod",
               id: "nasa/apod",
               description: "Fetch NASA's Astronomy Picture of the Day"
             },
             {
-              name: "NASA Near Earth Object Web Service",
+              name: "nasa_neo",
               id: "nasa/neo",
               description: "Information about asteroids and near-Earth objects"
             },
             {
-              name: "NASA EPIC",
+              name: "nasa_epic",
               id: "nasa/epic",
               description: "Earth Polychromatic Imaging Camera views of Earth"
             },
             {
-              name: "NASA GIBS",
+              name: "nasa_gibs",
               id: "nasa/gibs",
               description: "Global Imagery Browse Services satellite imagery"
             },
             {
-              name: "NASA Common Metadata Repository",
+              name: "nasa_cmr",
               id: "nasa/cmr",
               description: "Search NASA's Common Metadata Repository for satellite data"
             },
             {
-              name: "NASA FIRMS",
+              name: "nasa_firms",
               id: "nasa/firms",
               description: "Fire Information for Resource Management System"
             },
             {
-              name: "NASA Image and Video Library",
+              name: "nasa_images",
               id: "nasa/images",
               description: "Search NASA's image and video library"
             },
             {
-              name: "NASA Exoplanet Archive",
+              name: "nasa_exoplanet",
               id: "nasa/exoplanet",
               description: "Access NASA's Exoplanet Archive data"
             },
             {
-              name: "NASA DONKI",
+              name: "nasa_donki",
               id: "nasa/donki",
               description: "Space Weather Database Of Notifications, Knowledge, Information"
             },
             {
-              name: "NASA Mars Rover Photos",
+              name: "nasa_mars_rover",
               id: "nasa/mars-rover",
               description: "Browse photos from NASA's Mars rovers"
             },
             {
-              name: "NASA EONET",
+              name: "nasa_eonet",
               id: "nasa/eonet",
               description: "Earth Observatory Natural Event Tracker"
             },
             {
-              name: "NASA POWER",
+              name: "nasa_power",
               id: "nasa/power",
               description: "Prediction of Worldwide Energy Resources"
             },
             {
-              name: "JPL SBDB",
+              name: "jpl_sbdb",
               id: "jpl/sbdb",
               description: "Small-Body DataBase (SBDB) - primarily orbital data on all known asteroids and comets"
             },
             {
-              name: "JPL Fireball",
+              name: "jpl_fireball",
               id: "jpl/fireball",
               description: "Fireball atmospheric impact data reported by US Government sensors"
             },
             {
-              name: "JPL JD Calendar",
+              name: "jpl_jd_cal",
               id: "jpl/jd_cal",
               description: "Julian Day number to/from calendar date/time converter"
             },
             {
-              name: "JPL NHATS",
+              name: "jpl_nhats",
               id: "jpl/nhats",
               description: "Human-accessible NEOs (Near-Earth Objects) data"
             },
             {
-              name: "JPL CAD",
+              name: "jpl_cad",
               id: "jpl/cad",
               description: "Asteroid and comet close approaches to the planets in the past and future"
             },
             {
-              name: "JPL Sentry",
+              name: "jpl_sentry",
               id: "jpl/sentry",
               description: "JPL Sentry - NEO Earth impact risk assessment data"
             },
             {
-              name: "JPL Horizons",
+              name: "jpl_horizons",
               id: "jpl/horizons",
               description: "JPL Horizons - Solar system objects ephemeris data"
             }
@@ -670,7 +670,7 @@ async function startServer() {
         return {
           tools: [
             {
-              name: "nasa/apod",
+              name: "nasa_apod",
               description: "Fetch NASA's Astronomy Picture of the Day",
               inputSchema: {
                 type: "object",
@@ -700,7 +700,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/neo",
+              name: "nasa_neo",
               description: "Near Earth Object Web Service - information about asteroids",
               inputSchema: {
                 type: "object",
@@ -722,7 +722,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/epic",
+              name: "nasa_epic",
               description: "Earth Polychromatic Imaging Camera - views of Earth",
               inputSchema: {
                 type: "object",
@@ -739,7 +739,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/gibs",
+              name: "nasa_gibs",
               description: "Global Imagery Browse Services - satellite imagery",
               inputSchema: {
                 type: "object",
@@ -765,7 +765,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/cmr",
+              name: "nasa_cmr",
               description: "NASA Common Metadata Repository - search for NASA data collections",
               inputSchema: {
                 type: "object",
@@ -791,7 +791,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/firms",
+              name: "nasa_firms",
               description: "NASA Fire Information for Resource Management System - fire data",
               inputSchema: {
                 type: "object",
@@ -813,7 +813,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/images",
+              name: "nasa_images",
               description: "NASA Image and Video Library - search NASA's media archive",
               inputSchema: {
                 type: "object",
@@ -843,7 +843,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/exoplanet",
+              name: "nasa_exoplanet",
               description: "NASA Exoplanet Archive - data about planets beyond our solar system",
               inputSchema: {
                 type: "object",
@@ -873,7 +873,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/donki",
+              name: "nasa_donki",
               description: "Space Weather Database Of Notifications, Knowledge, Information",
               inputSchema: {
                 type: "object",
@@ -895,7 +895,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/mars-rover",
+              name: "nasa_mars_rover",
               description: "NASA Mars Rover Photos - images from Mars rovers",
               inputSchema: {
                 type: "object",
@@ -925,7 +925,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/eonet",
+              name: "nasa_eonet",
               description: "Earth Observatory Natural Event Tracker - natural events data",
               inputSchema: {
                 type: "object",
@@ -954,7 +954,7 @@ async function startServer() {
               }
             },
             {
-              name: "nasa/power",
+              name: "nasa_power",
               description: "Prediction of Worldwide Energy Resources - meteorological data",
               inputSchema: {
                 type: "object",
@@ -992,7 +992,7 @@ async function startServer() {
               }
             },
             {
-              name: "jpl/sbdb",
+              name: "jpl_sbdb",
               description: "Small-Body Database (SBDB) - asteroid and comet data",
               inputSchema: {
                 type: "object",
@@ -1010,7 +1010,7 @@ async function startServer() {
               }
             },
             {
-              name: "jpl/fireball",
+              name: "jpl_fireball",
               description: "Fireball data - atmospheric impact events",
               inputSchema: {
                 type: "object",
@@ -1031,7 +1031,7 @@ async function startServer() {
               }
             },
             {
-              name: "jpl/jd_cal",
+              name: "jpl_jd_cal",
               description: "Julian Day number to/from calendar date/time converter",
               inputSchema: {
                 type: "object",
@@ -1048,7 +1048,7 @@ async function startServer() {
               }
             },
             {
-              name: "jpl/nhats",
+              name: "jpl_nhats",
               description: "Human-accessible NEOs (Near-Earth Objects) data",
               inputSchema: {
                 type: "object",
@@ -1093,7 +1093,7 @@ async function startServer() {
               }
             },
             {
-              name: "jpl/cad",
+              name: "jpl_cad",
               description: "Asteroid and comet close approaches to the planets in the past and future",
               inputSchema: {
                 type: "object",
@@ -1142,7 +1142,7 @@ async function startServer() {
               }
             },
             {
-              name: "jpl/sentry",
+              name: "jpl_sentry",
               description: "JPL Sentry - NEO Earth impact risk assessment data",
               inputSchema: {
                 type: "object",
@@ -1191,7 +1191,7 @@ async function startServer() {
               }
             },
             {
-              name: "jpl/horizons",
+              name: "jpl_horizons",
               description: "JPL Horizons - Solar system objects ephemeris data",
               inputSchema: {
                 type: "object",
