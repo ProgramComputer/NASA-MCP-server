@@ -146,6 +146,29 @@ export const resourceTemplates: Array<{
         blob: new Uint8Array()
       };
     }
+  },
+  {
+    name: "nasa-earth-imagery",
+    description: "NASA Earth Landsat satellite imagery",
+    uriTemplate: "nasa://earth/imagery?lon={lon}&lat={lat}&date={date}",
+    generator: async (params) => {
+      const lon = params["lon"] || "-122.4783";
+      const lat = params["lat"] || "37.8199";
+      const date = params["date"] || "";
+      
+      return {
+        name: `Landsat imagery at coordinates (${lon}, ${lat})`,
+        mimeType: "application/json",
+        text: JSON.stringify({
+          coordinates: {
+            lon,
+            lat
+          },
+          date: date || "latest",
+          image_url: `https://api.nasa.gov/planetary/earth/imagery?lon=${lon}&lat=${lat}${date ? `&date=${date}` : ''}&api_key=DEMO_KEY`
+        }, null, 2)
+      };
+    }
   }
 ];
 
@@ -518,6 +541,16 @@ async function startServer() {
               name: "jpl_horizons",
               id: "jpl/horizons",
               description: "JPL Horizons - Solar system objects ephemeris data"
+            },
+            {
+              name: "jpl_scout",
+              id: "jpl/scout",
+              description: "NEOCP orbits, ephemerides, and impact risk data (Scout)"
+            },
+            {
+              name: "nasa_earth",
+              id: "nasa/earth",
+              description: "Earth - Landsat satellite imagery and data"
             }
           ]
         };
@@ -1248,6 +1281,177 @@ async function startServer() {
                 },
                 required: ["COMMAND"]
               }
+            },
+            {
+              name: "jpl_horizons_file",
+              description: "JPL Horizons - Solar system objects ephemeris data (File Input)",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  format: {
+                    type: "string",
+                    description: "Response format (json, text)",
+                    enum: ["json", "text"]
+                  },
+                  COMMAND: {
+                    type: "string",
+                    description: "Target object identifier (e.g., '499' for Mars, '1' for Ceres, 'C/2020 F3' for Comet NEOWISE)"
+                  },
+                  OBJ_DATA: {
+                    type: "string",
+                    description: "Include object data",
+                    enum: ["YES", "NO"]
+                  },
+                  MAKE_EPHEM: {
+                    type: "string",
+                    description: "Generate ephemeris",
+                    enum: ["YES", "NO"]
+                  },
+                  EPHEM_TYPE: {
+                    type: "string",
+                    description: "Type of ephemeris (OBSERVER, VECTORS, ELEMENTS)",
+                    enum: ["OBSERVER", "VECTORS", "ELEMENTS"]
+                  },
+                  CENTER: {
+                    type: "string",
+                    description: "Coordinate center (e.g., '500@399' for Earth)"
+                  },
+                  START_TIME: {
+                    type: "string",
+                    description: "Start time for ephemeris (e.g., '2023-01-01')"
+                  },
+                  STOP_TIME: {
+                    type: "string",
+                    description: "Stop time for ephemeris (e.g., '2023-01-02')"
+                  },
+                  STEP_SIZE: {
+                    type: "string",
+                    description: "Step size for ephemeris points (e.g., '1d' for daily, '1h' for hourly)"
+                  },
+                  QUANTITIES: {
+                    type: "string",
+                    description: "Observable quantities to include (e.g., 'A' for all, or '1,2,20,23' for specific ones)"
+                  },
+                  OUT_UNITS: {
+                    type: "string",
+                    description: "Output units for vector tables",
+                    enum: ["KM-S", "AU-D", "KM-D"]
+                  }
+                },
+                required: ["COMMAND"]
+              }
+            },
+            {
+              name: "jpl_periodic_orbits",
+              description: "JPL Three-Body Periodic Orbits Database",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  sys: {
+                    type: "string",
+                    description: "Three-body system (e.g., earth-moon, sun-earth)"
+                  },
+                  family: {
+                    type: "string",
+                    description: "Orbit family name (e.g., halo, dro, lyapunov)"
+                  },
+                  libr: {
+                    type: "integer",
+                    description: "Libration point (1-5, required for some families)"
+                  },
+                  branch: {
+                    type: "string",
+                    description: "Branch within family (N/S, E/W, etc., required for some families)"
+                  },
+                  periodmin: { type: "number", description: "Minimum period" },
+                  periodmax: { type: "number", description: "Maximum period" },
+                  periodunits: { type: "string", description: "Units for period (s, h, d, TU)", enum: ["s", "h", "d", "TU"] },
+                  jacobimin: { type: "number", description: "Minimum Jacobi constant" },
+                  jacobimax: { type: "number", description: "Maximum Jacobi constant" },
+                  stabmin: { type: "number", description: "Minimum stability index" },
+                  stabmax: { type: "number", description: "Maximum stability index" }
+                },
+                required: ["sys", "family"]
+              }
+            },
+            {
+              name: "nasa_osdr_files",
+              description: "NASA OSDR - Get data files for an OSD study",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  accession_number: {
+                    type: "string",
+                    description: "OSD study accession number (e.g., '87')"
+                  }
+                },
+                required: ["accession_number"]
+              }
+            },
+            {
+              name: "jpl_scout",
+              description: "Scout - NEOCP orbits, ephemerides, and impact risk data",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  tdes: {
+                    type: "string",
+                    description: "Object temporary designation (e.g., P21Eolo)"
+                  },
+                  orbit_id: {
+                    type: "string",
+                    description: "Scout internal orbit ID"
+                  },
+                  limit: {
+                    type: "number",
+                    description: "Limit number of results"
+                  },
+                  file: {
+                    type: "string",
+                    description: "Type of data file to return (summary, ephem, obs, crit, all)",
+                    enum: ["summary", "ephem", "obs", "crit", "all"]
+                  },
+                  plot: {
+                    type: "boolean",
+                    description: "Include plots in the response"
+                  },
+                  summary: {
+                    type: "boolean",
+                    description: "Include summary data in the response"
+                  }
+                },
+                // No required fields explicitly listed, as API might default to list
+              }
+            },
+            {
+              name: "nasa_earth",
+              description: "Earth - Landsat satellite imagery",
+              inputSchema: {
+                type: "object",
+                properties: {
+                  lon: {
+                    type: "number",
+                    description: "Longitude of the imagery location"
+                  },
+                  lat: {
+                    type: "number",
+                    description: "Latitude of the imagery location"
+                  },
+                  date: {
+                    type: "string",
+                    description: "Date of imagery (YYYY-MM-DD format). If not specified, most recent imagery is used"
+                  },
+                  dim: {
+                    type: "number",
+                    description: "Width and height of image in degrees (0.025 to 0.5)"
+                  },
+                  cloud_score: {
+                    type: "boolean",
+                    description: "Calculate the percentage of the image covered by clouds"
+                  }
+                },
+                required: ["lon", "lat"]
+              }
             }
           ]
         };
@@ -1463,6 +1667,41 @@ async function startServer() {
       }
     );
     
+    // Earth Handler
+    server.setRequestHandler(
+      z.object({ 
+        method: z.literal("nasa/earth"),
+        params: z.object({
+          lon: z.number().or(z.string().regex(/^-?\d+(\.\d+)?$/).transform(Number)),
+          lat: z.number().or(z.string().regex(/^-?\d+(\.\d+)?$/).transform(Number)),
+          date: z.string().optional(),
+          dim: z.number().optional(),
+          cloud_score: z.boolean().optional()
+        }).optional()
+      }),
+      async (request) => {
+        return await handleToolCall("nasa/earth", request.params || {});
+      }
+    );
+    
+    // Scout Handler
+    server.setRequestHandler(
+      z.object({ 
+        method: z.literal("jpl/scout"),
+        params: z.object({
+          tdes: z.string().optional(),
+          orbit_id: z.string().optional(),
+          limit: z.number().int().positive().optional(),
+          file: z.enum(['summary', 'ephem', 'obs', 'crit', 'all']).optional(),
+          plot: z.boolean().optional(),
+          summary: z.boolean().optional()
+        }).optional()
+      }),
+      async (request) => {
+        return await handleToolCall("jpl/scout", request.params || {});
+      }
+    );
+    
     // Add CallToolRequestSchema handler (required for MCP compliance)
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const toolName = request.params.name;
@@ -1596,68 +1835,49 @@ async function handlePrompt(promptName: string, args: Record<string, any>) {
 // Add a function to handle tool calls
 async function handleToolCall(toolName: string, args: Record<string, any>) {
   try {
+    // Convert toolName format (e.g., nasa_neo -> nasa/neo)
+    const internalToolId = toolName.replace('_', '/');
+
     serverInstance?.sendLoggingMessage({
       level: "info",
-      data: `Handling tool call for: ${toolName} with args: ${JSON.stringify(args)}`,
+      data: `Handling tool call for: ${toolName} (Internal ID: ${internalToolId}) with args: ${JSON.stringify(args)}`,
     });
-    
-    if (toolName.startsWith("nasa/")) {
+
+    // Use internalToolId for routing logic
+    if (internalToolId.startsWith("nasa/")) {
       // Extract the NASA API endpoint name
-      const endpoint = toolName.split("/")[1];
-      
+      const endpoint = internalToolId.split("/")[1];
+      const normalizedEndpoint = endpoint.replace(/-/g, '_'); // Normalize dashes for handler lookup if needed
+
+      // Log endpoint for debugging
       serverInstance?.sendLoggingMessage({
         level: "info",
-        data: `NASA Endpoint: ${endpoint}`,
+        data: `NASA Endpoint: ${endpoint} (Normalized: ${normalizedEndpoint})`,
       });
-      
-      // Normalize endpoint name to match filename (convert hyphens to underscores)
-      const normalizedEndpoint = endpoint.replace(/-/g, '_');
-      
-      serverInstance?.sendLoggingMessage({
-        level: "info",
-        data: `NASA Endpoint (normalized): ${normalizedEndpoint}`,
-      });
-      
+
       try {
-        // Dynamic import for all NASA handlers
+        // Dynamic import for NASA handlers using the original slash format path
+        const handlerModule = await import(`./handlers/nasa/${endpoint}.js`);
         serverInstance?.sendLoggingMessage({
           level: "info",
-          data: `Importing handler module: ./handlers/nasa/${normalizedEndpoint}.js`,
+          data: `Successfully imported handler module for: ./handlers/nasa/${endpoint}.js`,
         });
-        const handlerModule = await import(`./handlers/nasa/${normalizedEndpoint}.js`);
-        
-        serverInstance?.sendLoggingMessage({
-          level: "info",
-          data: `Handler module imported: ${JSON.stringify(Object.keys(handlerModule))}`,
-        });
-        
-        // Try to find the handler function in various export formats
-        // 1. First check for a default export
-        if (typeof handlerModule.default === 'function') {
+
+        // Try different potential handler function names
+        const handlerFunctionName = `nasa${endpoint.charAt(0).toUpperCase() + endpoint.slice(1).replace(/-/g, '_')}Handler`; // e.g. nasaMars_roverHandler
+        const simpleHandlerName = `${endpoint.replace(/-/g, '_')}Handler`; // e.g. mars_roverHandler
+
+        const handlerFunction = handlerModule.default || 
+                               handlerModule[handlerFunctionName] || 
+                               handlerModule[simpleHandlerName];
+
+        if (typeof handlerFunction === 'function') {
           serverInstance?.sendLoggingMessage({
             level: "info",
-            data: "Found default export function, calling it",
+            data: `Executing handler function for ${endpoint}`,
           });
-          return await handlerModule.default(args);
-        } 
-        // 2. Check for a function named after the endpoint (e.g., 'apodHandler')
-        else if (typeof handlerModule[`${normalizedEndpoint}Handler`] === 'function') {
-          serverInstance?.sendLoggingMessage({
-            level: "info",
-            data: `Found named export ${normalizedEndpoint}Handler function, calling it`,
-          });
-          return await handlerModule[`${normalizedEndpoint}Handler`](args);
-        } 
-        // 3. Check for a function named with nasa prefix (e.g., 'nasaApodHandler')
-        else if (typeof handlerModule[`nasa${normalizedEndpoint.charAt(0).toUpperCase() + normalizedEndpoint.slice(1)}Handler`] === 'function') {
-          serverInstance?.sendLoggingMessage({
-            level: "info",
-            data: `Found named export nasa${normalizedEndpoint.charAt(0).toUpperCase() + normalizedEndpoint.slice(1)}Handler function, calling it`,
-          });
-          return await handlerModule[`nasa${normalizedEndpoint.charAt(0).toUpperCase() + normalizedEndpoint.slice(1)}Handler`](args);
-        }
-        // No usable export found
-        else {
+          return await handlerFunction(args);
+        } else {
           serverInstance?.sendLoggingMessage({
             level: "info",
             data: `No handler function found in module: ${JSON.stringify(Object.keys(handlerModule))}`,
@@ -1667,16 +1887,16 @@ async function handleToolCall(toolName: string, args: Record<string, any>) {
       } catch (importError) {
         throw new Error(`Failed to import handler for NASA endpoint: ${normalizedEndpoint}. Error: ${importError instanceof Error ? importError.message : String(importError)}`);
       }
-    } else if (toolName.startsWith("jpl/")) {
+    } else if (internalToolId.startsWith("jpl/")) {
       // Extract the JPL API endpoint name
-      const endpoint = toolName.split("/")[1];
+      const endpoint = internalToolId.split("/")[1];
       serverInstance?.sendLoggingMessage({
         level: "info",
         data: `JPL Endpoint: ${endpoint}`,
       });
       
       try {
-        // Dynamic import for JPL handlers
+        // Dynamic import for JPL handlers using the original slash format path
         serverInstance?.sendLoggingMessage({
           level: "info",
           data: `Importing handler module: ./handlers/jpl/${endpoint}.js`,
@@ -1924,6 +2144,42 @@ export function registerMcpTools() {
         data: `MCP JPL Horizons called with args: ${JSON.stringify(args)}`,
       });
       return await handleToolCall('jpl/horizons', args);
+    });
+
+    // Register Horizons File Tool
+    registerGlobalTool('mcp__jplhorizons_file', async (args: Record<string, any>) => {
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP JPL Horizons File called with args: ${JSON.stringify(args)}`,
+      });
+      return await handleToolCall('jpl/horizons_file', args);
+    });
+
+    // Register Periodic Orbits Tool
+    registerGlobalTool('mcp__jplperiodic_orbits', async (args: Record<string, any>) => {
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP JPL Periodic Orbits called with args: ${JSON.stringify(args)}`,
+      });
+      return await handleToolCall('jpl/periodic_orbits', args);
+    });
+
+    // Register Earth tool
+    registerGlobalTool('mcp__nasaearth', async (args: Record<string, any>) => {
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP NASA Earth called with args: ${JSON.stringify(args)}`,
+      });
+      return await handleToolCall('nasa/earth', args);
+    });
+
+    // Register Scout tool
+    registerGlobalTool('mcp__jplscout', async (args: Record<string, any>) => {
+      serverInstance?.sendLoggingMessage({
+        level: "info",
+        data: `MCP JPL Scout called with args: ${JSON.stringify(args)}`,
+      });
+      return await handleToolCall('jpl/scout', args);
     });
 
     serverInstance?.sendLoggingMessage({

@@ -16,6 +16,7 @@ import { nasaMarsRoverHandler } from './nasa/mars_rover';
 import { nasaEonetHandler } from './nasa/eonet';
 import { nasaSoundsHandler, soundsParamsSchema, SoundsParams } from './nasa/sounds';
 import { nasaPowerHandler, powerParamsSchema, PowerParams } from './nasa/power';
+import { nasaEarthHandler, earthParamsSchema, EarthParams } from './nasa/earth';
 
 // JPL API handlers
 import { jplSbdbHandler, sbdbParamsSchema, SbdbParams } from './jpl/sbdb';
@@ -77,6 +78,14 @@ const ExoplanetSchema = z.object({
   limit: z.number().optional()
 });
 
+const EarthSchema = z.object({
+  lon: z.number().or(z.string().regex(/^-?\d+(\.\d+)?$/).transform(Number)),
+  lat: z.number().or(z.string().regex(/^-?\d+(\.\d+)?$/).transform(Number)),
+  date: z.string().optional(),
+  dim: z.number().optional(),
+  cloud_score: z.boolean().optional()
+});
+
 const SbdbSchema = z.object({
   search: z.string()
 });
@@ -88,8 +97,12 @@ const FireballSchema = z.object({
 });
 
 const ScoutSchema = z.object({
-  orbit_id: z.string().optional(),
-  tdes: z.string().optional()
+  tdes: z.string().describe("Object temporary designation (e.g., P21Eolo)").optional(),
+  orbit_id: z.string().describe("Scout internal orbit ID").optional(),
+  limit: z.number().int().positive().describe("Limit number of results").optional(),
+  file: z.enum(['summary', 'ephem', 'obs', 'crit', 'all']).describe("Type of data file to return").optional(),
+  plot: z.boolean().describe("Include plots in the response").optional(),
+  summary: z.boolean().describe("Include summary data in the response").optional()
 });
 
 // Define schemas for added APIs
