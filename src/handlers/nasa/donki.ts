@@ -25,7 +25,19 @@ export async function nasaDonkiHandler(params: DonkiParams) {
       notifications: '/DONKI/notifications'
     };
     
-    const endpoint = typeEndpoints[type];
+    const endpoint = typeEndpoints[type.toLowerCase()];
+    
+    // Validate that the endpoint exists for the given type
+    if (!endpoint) {
+      return {
+        isError: true,
+        content: [{
+          type: "text",
+          text: `Error: Invalid DONKI type "${type}". Valid types are: ${Object.keys(typeEndpoints).join(', ')}`
+        }]
+      };
+    }
+    
     const queryParams: Record<string, any> = {};
     
     // Add date parameters if provided
@@ -48,12 +60,18 @@ export async function nasaDonkiHandler(params: DonkiParams) {
       text: JSON.stringify(result, null, 2)
     });
     
-    // Return the result
+    // Return the confirmation message and the actual data
     return { 
-      content: [{
-        type: "text",
-        text: `Retrieved DONKI ${type.toUpperCase()} space weather data${startDate ? ` from ${startDate}` : ''}${endDate ? ` to ${endDate}` : ''}.`
-      }],
+      content: [
+        {
+          type: "text",
+          text: `Retrieved DONKI ${type.toUpperCase()} space weather data${startDate ? ` from ${startDate}` : ''}${endDate ? ` to ${endDate}` : ''}.`
+        },
+        {
+          type: "text",
+          text: JSON.stringify(result, null, 2)
+        }
+      ],
       isError: false
     };
   } catch (error: any) {

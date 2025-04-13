@@ -50,7 +50,7 @@ export async function nasaApiRequest(
         ...params,
         api_key: apiKey
       },
-      timeout: 10000, // 10 second timeout
+      timeout: 30000, // 30 second timeout
       ...options
     });
 
@@ -61,6 +61,10 @@ export async function nasaApiRequest(
     if (error.response) {
       // The request was made and the server responded with a status code
       // that falls out of the range of 2xx
+      console.error('Response status:', error.response.status);
+      console.error('Response headers:', JSON.stringify(error.response.headers));
+      console.error('Response data:', JSON.stringify(error.response.data).substring(0, 200));
+      
       return {
         isError: true,
         content: [{
@@ -70,11 +74,17 @@ export async function nasaApiRequest(
       };
     } else if (error.request) {
       // The request was made but no response was received
+      console.error('Request details:');
+      console.error('- URL:', error.request._currentUrl || 'Not available');
+      console.error('- Method:', error.request.method || 'Not available');
+      console.error('- Headers:', error.request._header || 'Not available');
+      console.error('- Timeout:', error.request.timeout || 'Not available');
+      
       return {
         isError: true,
         content: [{
           type: "text",
-          text: `NASA API network error: No response received or request timed out`
+          text: `NASA API network error: No response received or request timed out. URL: ${error.request._currentUrl || 'Unknown'}`
         }]
       };
     } else {
@@ -133,7 +143,7 @@ export async function jplApiRequest(
     const response = await axios({
       url: `${JPL_SSD_API_BASE_URL}${endpoint}`,
       params: paramsToSend, // Use the potentially modified params object
-      timeout: 10000, // 10 second timeout
+      timeout: 30000, // 30 second timeout
       ...options
     });
 
@@ -142,6 +152,9 @@ export async function jplApiRequest(
     console.error(`Error calling JPL API (${endpoint}):`, error.message);
     
     if (error.response) {
+      console.error('Response status:', error.response.status);
+      console.error('Response data:', JSON.stringify(error.response.data).substring(0, 200));
+      
       return {
         isError: true,
         content: [{
@@ -150,11 +163,17 @@ export async function jplApiRequest(
         }]
       };
     } else if (error.request) {
+      console.error('Request details:');
+      console.error('- URL:', error.request._currentUrl || 'Not available');
+      console.error('- Method:', error.request.method || 'Not available');
+      console.error('- Headers:', error.request._header || 'Not available');
+      console.error('- Timeout:', error.request.timeout || 'Not available');
+      
       return {
         isError: true,
         content: [{
           type: "text",
-          text: `JPL API network error: No response received`
+          text: `JPL API network error: No response received. URL: ${error.request._currentUrl || 'Unknown'}`
         }]
       };
     } else {

@@ -14,7 +14,6 @@ import { nasaExoplanetHandler, exoplanetParamsSchema, ExoplanetParams } from './
 import { nasaDonkiHandler } from './nasa/donki';
 import { nasaMarsRoverHandler } from './nasa/mars_rover';
 import { nasaEonetHandler } from './nasa/eonet';
-import { nasaSoundsHandler, soundsParamsSchema, SoundsParams } from './nasa/sounds';
 import { nasaPowerHandler, powerParamsSchema, PowerParams } from './nasa/power';
 import { nasaEarthHandler, earthParamsSchema, EarthParams } from './nasa/earth';
 

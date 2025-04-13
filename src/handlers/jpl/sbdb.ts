@@ -63,10 +63,16 @@ export async function jplSbdbHandler(params: SbdbParams) {
     
     // Return the response
     return {
-      content: [{
-        type: "text",
-        text: `Retrieved data for small body "${params.sstr}".`
-      }],
+      content: [
+        {
+          type: "text",
+          text: `Retrieved data for small body "${params.sstr}".`
+        },
+        {
+          type: "text",
+          text: JSON.stringify(response.data, null, 2)
+        }
+      ],
       isError: false
     };
   } catch (error: any) {

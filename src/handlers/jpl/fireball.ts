@@ -37,10 +37,16 @@ export async function jplFireballHandler(params: FireballParams) {
     const response = await axios.get(url, { params });
     
     return {
-      content: [{
-        type: "text",
-        text: `Retrieved ${response.data.count || 0} fireball events.`
-      }],
+      content: [
+        {
+          type: "text",
+          text: `Retrieved ${response.data.count || 0} fireball events.`
+        },
+        {
+          type: "text",
+          text: JSON.stringify(response.data, null, 2)
+        }
+      ],
       isError: false
     };
   } catch (error: any) {
