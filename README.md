@@ -24,13 +24,13 @@ Big thanks to the MCP community for their support and guidance!
 ### Running with npx
 
 ```bash
-env NASA_API_KEY=YOUR_API_KEY npx -y @programcomputer/nasa-mcp-server
+env NASA_API_KEY=YOUR_API_KEY npx -y @programcomputer/nasa-mcp-server@latest
 ```
 
 You can also pass the API key as a command line argument:
 
 ```bash
-npx -y @programcomputer/nasa-mcp-server --nasa-api-key=YOUR_API_KEY
+npx -y @programcomputer/nasa-mcp-server@latest --nasa-api-key=YOUR_API_KEY
 ```
 
 ### Using SuperGateway for Server-Sent Events (SSE)
@@ -66,7 +66,7 @@ Create or edit an `mcp.json` file in your Cursor configuration directory with th
   "mcpServers": {
     "nasa-mcp": {
       "command": "npx",
-      "args": ["-y", "@programcomputer/nasa-mcp-server"],
+      "args": ["-y", "@programcomputer/nasa-mcp-server@latest"],
       "env": {
         "NASA_API_KEY": "your-api-key"
       }
@@ -83,13 +83,9 @@ After adding the configuration, restart Cursor to see the new NASA tools. The Co
 
 The server can be configured with the following environment variables:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NASA_API_KEY` | Your NASA API key (get at api.nasa.gov) | `DEMO_KEY` (limited usage) |
-| `PORT` | Port to run the server on | `3000` |
-| `LOG_LEVEL` | Logging level (debug, info, warn, error) | `info` |
-| `CACHE_DURATION` | Cache duration in seconds | `3600` (1 hour) |
-| `RATE_LIMIT` | Maximum requests per hour | Based on API key |
+| Variable | Description |
+|----------|-------------|
+| `NASA_API_KEY` | Your NASA API key (get at api.nasa.gov) |
 
 ## Included NASA APIs
 

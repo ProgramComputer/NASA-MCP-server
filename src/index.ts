@@ -416,7 +416,7 @@ async function startServer() {
       {
         name: "NASA MCP Server",
         description: "Model Context Protocol server for NASA APIs",
-        version: "1.0.9"
+        version: "1.0.10"
       },
       {
         capabilities: {
