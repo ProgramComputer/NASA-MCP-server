@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
-import { addResource } from '../../index';
+import { addResource } from '../../resources';
 
 // Base URL for NASA's Exoplanet Archive
 const EXOPLANET_API_URL = 'https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI';

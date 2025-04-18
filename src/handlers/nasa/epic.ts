@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import axios from 'axios';
 import { nasaApiRequest } from '../../utils/api-client';
-import { addResource } from '../../index';
+import { addResource } from '../../resources';
 
 // Define the EPIC API base URL
 const EPIC_API_BASE_URL = 'https://epic.gsfc.nasa.gov/api';
@@ -38,8 +38,8 @@ async function processEpicResults(epicData: any[], collection: string) {
   const dateStr = firstImage.date.split(' ')[0];
   const [year, month, day] = dateStr.split('-');
   
-  // Format each image and register it as a resource
-  const images = [];
+  // Collect image data including base64 for direct display
+  const images: Array<{ identifier: string; caption: string; imageUrl: string; resourceUri: string; base64?: string; mimeType?: string; error?: string }> = [];
   
   for (const img of epicData) {
     // Construct the image URL according to NASA's format
@@ -55,6 +55,9 @@ async function processEpicResults(epicData: any[], collection: string) {
         responseType: 'arraybuffer',
         timeout: 30000
       });
+      
+      // Convert image data to Base64 for direct response
+      const imageBase64 = Buffer.from(imageResponse.data).toString('base64');
       
       // Register this image as a resource with binary data
       addResource(resourceUri, {
@@ -76,11 +79,14 @@ async function processEpicResults(epicData: any[], collection: string) {
         blob: Buffer.from(imageResponse.data)
       });
       
+      // Keep data for direct response
       images.push({
         identifier: img.identifier,
         caption: img.caption || "Earth view from DSCOVR satellite",
         imageUrl: imageUrl,
-        resourceUri: resourceUri
+        resourceUri: resourceUri,
+        base64: imageBase64,
+        mimeType: "image/png"
       });
     } catch (error) {
       console.error(`Error fetching EPIC image ${img.identifier}:`, error);
@@ -146,14 +152,15 @@ export async function nasaEpicHandler(params: EpicParams) {
       
       return {
         content: [
-          {
-            type: "text",
-            text: results.summary
-          },
-          ...results.images.map(img => ({
-            type: "text",
-            text: `![${img.caption}](${img.resourceUri})`
-          }))
+          { type: "text", text: results.summary },
+          // Existing resource URI entries
+          ...results.images.map(img => ({ type: "text", text: `![${img.caption}](${img.resourceUri})` })),
+          // Direct image URL markdown entries
+          ...results.images.map(img => ({ type: "text", text: `![${img.caption}](${img.imageUrl})` })),
+          // Embedded binary images
+          ...results.images
+            .filter(img => img.base64)
+            .map(img => ({ type: "image", data: img.base64!, mimeType: img.mimeType! })),
         ],
         isError: false
       };

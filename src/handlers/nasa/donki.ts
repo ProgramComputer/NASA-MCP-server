@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { nasaApiRequest } from '../../utils/api-client';
 import { DonkiParams } from '../setup';
-import { addResource } from '../../index';
+import { addResource } from '../../resources';
 
 /**
  * Handle requests for NASA's Space Weather Database Of Notifications, Knowledge, Information (DONKI) API

@@ -1,6 +1,6 @@
 import axios from 'axios';
 import FormData from 'form-data'; // Need form-data for multipart POST
-import { addResource } from '../../index';
+import { addResource } from '../../resources';
 
 /**
  * Handler for JPL Horizons File API (POST request)

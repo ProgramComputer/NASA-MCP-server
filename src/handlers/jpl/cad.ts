@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { addResource } from '../../index.js';
+import { addResource } from '../../resources';
 
 /**
  * Handler for JPL SB Close Approach (CAD) API
