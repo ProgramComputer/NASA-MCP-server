@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { jplApiRequest } from '../../utils/api-client';
 import { ScoutParams } from '../setup';
-import { addResource } from '../../index'; // Import addResource
+import { addResource } from '../../resources'; // Import addResource
 
 /**
  * Process the Scout API result and format it for display.

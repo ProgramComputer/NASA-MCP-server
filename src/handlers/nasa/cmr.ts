@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
-import { addResource } from '../../index';
+import { addResource } from '../../resources';
 
 const CMR_API_BASE_URL = 'https://cmr.earthdata.nasa.gov/search';
 

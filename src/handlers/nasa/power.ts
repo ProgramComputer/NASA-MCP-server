@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
-import { addResource } from '../../index';
+import { addResource } from '../../resources';
 
 // Schema for validating POWER request parameters
 export const powerParamsSchema = z.object({

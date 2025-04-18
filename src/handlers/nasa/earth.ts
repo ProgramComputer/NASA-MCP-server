@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { nasaApiRequest } from '../../utils/api-client';
-import { addResource } from '../../index.js';
+import { addResource } from '../../resources';
 
 // Schema for validating Earth API request parameters
 export const earthParamsSchema = z.object({

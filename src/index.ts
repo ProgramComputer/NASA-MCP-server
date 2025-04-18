@@ -14,20 +14,12 @@ import {
 import path from 'path';
 import { nasaApiRequest, jplApiRequest } from './utils/api-client';
 import { apodParamsSchema } from './handlers/nasa/apod';
+import { resources, addResource as addResourceCore, Resource } from './resources';
 
 // Load environment variables with enhanced setup
 setupEnvironment();
 // Also load with standard dotenv for compatibility
 dotenv.config();
-
-// Global resources collection and resource templates array
-export const resources = new Map<string, {
-  name: string;
-  mimeType: string;
-  text?: string;
-  blob?: Uint8Array;
-}>();
-
 
 // Keep a reference to the server for notifications
 let serverInstance: Server | null = null;
@@ -416,7 +408,7 @@ async function startServer() {
       {
         name: "NASA MCP Server",
         description: "Model Context Protocol server for NASA APIs",
-        version: "1.0.10"
+        version: "1.0.11"
       },
       {
         capabilities: {
@@ -1945,13 +1937,8 @@ async function handleToolCall(toolName: string, args: Record<string, any>) {
 }
 
 // Utility function to add a resource (can be used by handlers to store results)
-export function addResource(uri: string, resource: {
-  name: string;
-  mimeType: string;
-  text?: string;
-  blob?: Uint8Array;
-}) {
-  resources.set(uri, resource);
+export function addResource(uri: string, resource: Resource) {
+  addResourceCore(uri, resource);
   
   // Send notification about resource change if server is initialized
   if (serverInstance) {

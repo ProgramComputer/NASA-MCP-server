@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
-import { addResource } from '../../index';
+import { addResource } from '../../resources';
 
 // Schema for validating GIBS request parameters
 export const gibsParamsSchema = z.object({

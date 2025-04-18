@@ -2,7 +2,7 @@ import { z } from 'zod';
 import axios from 'axios';
 import { nasaApiRequest } from '../../utils/api-client';
 import { EonetParams } from '../setup';
-import { addResource } from '../../index';
+import { addResource } from '../../resources';
 
 // Define the EONET API base URL
 const EONET_API_BASE_URL = 'https://eonet.gsfc.nasa.gov/api';

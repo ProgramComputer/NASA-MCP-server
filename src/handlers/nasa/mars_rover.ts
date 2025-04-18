@@ -2,7 +2,7 @@ import { z } from 'zod';
 import axios from 'axios';
 import { nasaApiRequest } from '../../utils/api-client';
 import { MarsRoverParams } from '../setup';
-import { addResource } from '../../index';
+import { addResource } from '../../resources';
 
 // Schema for validating Mars Rover request parameters
 const marsRoverParamsSchema = z.object({
@@ -54,6 +54,8 @@ export async function nasaMarsRoverHandler(params: MarsRoverParams) {
 async function processRoverResults(data: any, rover: string) {
   const photos = data.photos || [];
   const resources = [];
+  // Collect base64 image data for direct display
+  const images: Array<{ title: string; url: string; data: string; mimeType: string }> = [];
   
   if (photos.length === 0) {
     return {
@@ -97,6 +99,8 @@ async function processRoverResults(data: any, rover: string) {
         // Store the actual image data as a blob
         blob: Buffer.from(imageResponse.data)
       });
+      // Keep base64 data for direct response
+      images.push({ title: `Mars Rover Photo ${photoId}`, url: photo.img_src, data: imageBase64, mimeType: "image/jpeg" });
     } catch (error) {
       console.error(`Error fetching image for rover photo ${photoId}:`, error);
       
@@ -133,7 +137,10 @@ async function processRoverResults(data: any, rover: string) {
       {
         type: "text",
         text: JSON.stringify(resources, null, 2)
-      }
+      },
+      // Include direct image links and binary data
+      ...images.map(img => ({ type: "text", text: `![${img.title}](${img.url})` })),
+      ...images.map(img => ({ type: "image", data: img.data, mimeType: img.mimeType })),
     ],
     isError: false
   };

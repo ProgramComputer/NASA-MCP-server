@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
-import { addResource } from '../../index';
+import { addResource } from '../../resources';
 
 const FIRMS_API_BASE_URL = 'https://firms.modaps.eosdis.nasa.gov/api/area/csv';
 
