@@ -1,3 +1,5 @@
+![NPM Version](https://img.shields.io/npm/v/%40programcomputer%2Fnasa-mcp-server)
+
 # NASA MCP Server
 
 A Model Context Protocol (MCP) server for NASA APIs, providing a standardized interface for AI models to interact with NASA's vast array of data sources. This server implements the official Model Context Protocol specification.
