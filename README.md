@@ -1,4 +1,4 @@
-![NPM Version](https://img.shields.io/npm/v/%40programcomputer%2Fnasa-mcp-server?link=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2F%40programcomputer%2Fnasa-mcp-server)
+[![NPM Version](https://img.shields.io/npm/v/%40programcomputer%2Fnasa-mcp-server?link=https%3A%2F%2Fwww.npmjs.com%2Fpackage%2F%40programcomputer%2Fnasa-mcp-server)](https://www.npmjs.com/package/@programcomputer/nasa-mcp-server)
 
 # NASA MCP Server
 
