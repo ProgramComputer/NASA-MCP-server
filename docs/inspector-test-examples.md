@@ -301,7 +301,7 @@ Get fireball data:
 {
   "method": "jpl/fireball",
   "params": {
-    "date-min": "2022-01-01",
+    "date_min": "2022-01-01",
     "limit": 5
   }
 }

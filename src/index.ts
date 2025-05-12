@@ -316,17 +316,17 @@ const jplPrompts = [
     description: "Find close approaches of asteroids and comets to Earth or other planets",
     arguments: [
       {
-        name: "dist-max",
+        name: "dist_max",
         description: "Maximum approach distance in lunar distances (LD)",
         required: false
       },
       {
-        name: "date-min",
+        name: "date_min",
         description: "Start date for search (YYYY-MM-DD)",
         required: false
       },
       {
-        name: "date-max",
+        name: "date_max",
         description: "End date for search (YYYY-MM-DD)",
         required: false
       },
@@ -342,17 +342,17 @@ const jplPrompts = [
     description: "Retrieve data about fireballs detected by US Government sensors",
     arguments: [
       {
-        name: "date-min",
+        name: "date_min",
         description: "Start date for fireball data (YYYY-MM-DD)",
         required: false
       },
       {
-        name: "date-max", 
+        name: "date_max", 
         description: "End date for fireball data (YYYY-MM-DD)",
         required: false
       },
       {
-        name: "energy-min",
+        name: "energy_min",
         description: "Minimum energy in kilotons of TNT",
         required: false
       }
@@ -408,7 +408,7 @@ async function startServer() {
       {
         name: "NASA MCP Server",
         description: "Model Context Protocol server for NASA APIs",
-        version: "1.0.11"
+        version: "1.0.12"
       },
       {
         capabilities: {
@@ -1044,11 +1044,11 @@ async function startServer() {
                     type: "number",
                     description: "Maximum number of results to return"
                   },
-                  "date-min": {
+                  "date_min": {
                     type: "string", 
                     description: "Start date (YYYY-MM-DD)"
                   },
-                  "date-max": {
+                  "date_max": {
                     type: "string",
                     description: "End date (YYYY-MM-DD)"
                   }
@@ -1123,19 +1123,19 @@ async function startServer() {
               inputSchema: {
                 type: "object",
                 properties: {
-                  "dist-max": {
+                  "dist_max": {
                     type: "string",
                     description: "Maximum approach distance (e.g., 0.05, 10LD). Default: 0.05 au"
                   },
-                  "dist-min": {
+                  "dist_min": {
                     type: "string",
                     description: "Minimum approach distance. Default: none"
                   },
-                  "date-min": {
+                  "date_min": {
                     type: "string",
                     description: "Start date for search (YYYY-MM-DD). Default: now"
                   },
-                  "date-max": {
+                  "date_max": {
                     type: "string",
                     description: "End date for search (YYYY-MM-DD). Default: +60 days"
                   },
@@ -1176,11 +1176,11 @@ async function startServer() {
                     type: "number",
                     description: "Maximum number of results to return"
                   },
-                  "date-min": {
+                  "date_min": {
                     type: "string",
                     description: "Start date (YYYY-MM-DD)"
                   },
-                  "date-max": {
+                  "date_max": {
                     type: "string",
                     description: "End date (YYYY-MM-DD)"
                   },
@@ -1192,15 +1192,15 @@ async function startServer() {
                     type: "string",
                     description: "Object SPK-ID"
                   },
-                  "h-max": {
+                  "h_max": {
                     type: "number",
                     description: "Maximum absolute magnitude (size filter)"
                   },
-                  "ps-min": {
+                  "ps_min": {
                     type: "string",
                     description: "Minimum Palermo Scale value"
                   },
-                  "ip-min": {
+                  "ip_min": {
                     type: "string",
                     description: "Minimum impact probability"
                   },

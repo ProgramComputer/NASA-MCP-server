@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { addResource } from '../../resources';
+import { transformParamsToHyphenated } from '../../utils/param-transformer';
 
 /**
  * Handler for JPL Julian Date Calendar Conversion API
@@ -25,8 +26,11 @@ export async function jdCalHandler(args: Record<string, any>) {
       };
     }
     
+    // Transform parameter names from underscore to hyphenated format
+    const transformedParams = transformParamsToHyphenated(args);
+    
     // Make the API request
-    const response = await axios.get(baseUrl, { params: args });
+    const response = await axios.get(baseUrl, { params: transformedParams });
     const data = response.data;
     
     // Add response to resources

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { addResource } from '../../resources';
+import { transformParamsToHyphenated } from '../../utils/param-transformer';
 
 // Define expected parameters based on documentation
 // Required: sys, family
@@ -36,8 +37,11 @@ export async function periodicOrbitsHandler(args: PeriodicOrbitParams) {
     // Base URL for the Periodic Orbits API
     const baseUrl = 'https://ssd-api.jpl.nasa.gov/periodic_orbits.api';
     
+    // Transform parameter names from underscore to hyphenated format
+    const transformedParams = transformParamsToHyphenated(args);
+    
     // Make the API request using GET with parameters
-    const response = await axios.get(baseUrl, { params: args });
+    const response = await axios.get(baseUrl, { params: transformedParams });
     const data = response.data;
     
     // Create a resource URI 

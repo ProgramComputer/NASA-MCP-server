@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
+import { transformParamsToHyphenated } from '../../utils/param-transformer';
 
 // Schema for validating JPL Small-Body Database request parameters
 export const sbdbParamsSchema = z.object({
@@ -58,8 +59,11 @@ export async function jplSbdbHandler(params: SbdbParams) {
     if (ca_tbl !== 'approach') queryParams.ca_tbl = ca_tbl;
     if (format !== 'json') queryParams.format = format;
     
+    // Transform parameter names from underscore to hyphenated format
+    const transformedParams = transformParamsToHyphenated(queryParams);
+    
     // Make the request to SBDB API
-    const response = await axios.get(url, { params: queryParams });
+    const response = await axios.get(url, { params: transformedParams });
     
     // Return the response
     return {
