@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { addResource } from '../../resources';
+import { transformParamsToHyphenated } from '../../utils/param-transformer';
 
 /**
  * Handler for JPL SB Close Approach (CAD) API
@@ -18,8 +19,11 @@ export async function cadHandler(args: Record<string, any>) {
     // Validate parameters if needed
     // Parameters are fairly flexible in this API, so minimal validation is needed
     
+    // Transform parameter names from underscore to hyphenated format
+    const transformedParams = transformParamsToHyphenated(args);
+    
     // Make the API request
-    const response = await axios.get(baseUrl, { params: args });
+    const response = await axios.get(baseUrl, { params: transformedParams });
     const data = response.data;
     
     // Create a resource URI that represents this query
@@ -43,8 +47,8 @@ export async function cadHandler(args: Record<string, any>) {
       resourceUri = `jpl://cad/list${constraints ? '?' + constraints : ''}`;
       
       // Create a readable name based on date range and body
-      const dateMin = args['date-min'] || 'now';
-      const dateMax = args['date-max'] || '+60';
+      const dateMin = args['date_min'] || 'now';
+      const dateMax = args['date_max'] || '+60';
       const body = args.body || 'Earth';
       
       resourceName = `Close approaches to ${body} from ${dateMin} to ${dateMax}`;

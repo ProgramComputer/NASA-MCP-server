@@ -1,6 +1,7 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import dotenv from 'dotenv';
 import path from 'path';
+import { transformParamsToHyphenated } from './param-transformer';
 
 // Try to load environment variables from .env file with absolute path
 dotenv.config();
@@ -111,7 +112,10 @@ export async function jplApiRequest(
   try {
     // JPL endpoints might use the NASA API key, but check exceptions like Scout
     let apiKey = process.env.NASA_API_KEY;
-    let paramsToSend = { ...params }; // Start with original params
+    
+    // Transform parameter names from underscore to hyphenated format
+    // as the JPL APIs expect hyphenated parameter names
+    let paramsToSend = transformParamsToHyphenated(params);
 
     // Only add api_key if required and available, and not for scout.api
     if (endpoint !== '/scout.api' && apiKey) {

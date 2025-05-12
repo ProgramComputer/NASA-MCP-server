@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import axios from 'axios';
+import { transformParamsToHyphenated } from '../../utils/param-transformer';
 
 // Schema for validating JPL Fireball request parameters
 export const fireballParamsSchema = z.object({
@@ -33,8 +34,11 @@ export async function jplFireballHandler(params: FireballParams) {
     // Construct the Fireball API URL
     const url = 'https://ssd-api.jpl.nasa.gov/fireball.api';
     
+    // Transform parameter names from underscore to hyphenated format
+    const transformedParams = transformParamsToHyphenated(params);
+    
     // Make the request to the Fireball API
-    const response = await axios.get(url, { params });
+    const response = await axios.get(url, { params: transformedParams });
     
     return {
       content: [

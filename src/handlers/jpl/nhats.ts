@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { addResource } from '../../resources';
+import { transformParamsToHyphenated } from '../../utils/param-transformer';
 
 /**
  * Handler for JPL NHATS API (Human-accessible NEOs data)
@@ -18,8 +19,11 @@ export async function nhatsHandler(args: Record<string, any>) {
     // Validate parameters if needed
     // Parameters are fairly flexible in this API, so minimal validation is needed
     
+    // Transform parameter names from underscore to hyphenated format
+    const transformedParams = transformParamsToHyphenated(args);
+    
     // Make the API request
-    const response = await axios.get(baseUrl, { params: args });
+    const response = await axios.get(baseUrl, { params: transformedParams });
     const data = response.data;
     
     // Create a resource URI that represents this query
