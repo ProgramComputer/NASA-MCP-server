@@ -408,7 +408,7 @@ async function startServer() {
       {
         name: "NASA MCP Server",
         description: "Model Context Protocol server for NASA APIs",
-        version: "1.0.12"
+        version: "1.0.13"
       },
       {
         capabilities: {
@@ -539,11 +539,11 @@ async function startServer() {
               id: "jpl/scout",
               description: "NEOCP orbits, ephemerides, and impact risk data (Scout)"
             },
-            {
-              name: "nasa_earth",
-              id: "nasa/earth",
-              description: "Earth - Landsat satellite imagery and data"
-            }
+            // {
+            //   name: "nasa_earth",
+            //   id: "nasa/earth", 
+            //   description: "Earth - Landsat satellite imagery and data"
+            // }
           ]
         };
       }
@@ -799,6 +799,18 @@ async function startServer() {
                     type: "string",
                     description: "Search keyword"
                   },
+                  search_type: {
+                    type: "string",
+                    description: "Search type (collections or granules)",
+                    enum: ["collections", "granules"],
+                    default: "collections"
+                  },
+                  format: {
+                    type: "string",
+                    description: "Response format",
+                    enum: ["json", "umm_json", "atom", "echo10", "iso19115", "iso_smap", "kml"],
+                    default: "json"
+                  },
                   limit: {
                     type: "number",
                     description: "Maximum number of results to return"
@@ -812,7 +824,7 @@ async function startServer() {
                     description: "Field to sort results by"
                   }
                 },
-                required: ["keyword"]
+                required: ["keyword","search_type", "format"]
               }
             },
             {
@@ -1415,36 +1427,36 @@ async function startServer() {
                 // No required fields explicitly listed, as API might default to list
               }
             },
-            {
-              name: "nasa_earth",
-              description: "Earth - Landsat satellite imagery",
-              inputSchema: {
-                type: "object",
-                properties: {
-                  lon: {
-                    type: "number",
-                    description: "Longitude of the imagery location"
-                  },
-                  lat: {
-                    type: "number",
-                    description: "Latitude of the imagery location"
-                  },
-                  date: {
-                    type: "string",
-                    description: "Date of imagery (YYYY-MM-DD format). If not specified, most recent imagery is used"
-                  },
-                  dim: {
-                    type: "number",
-                    description: "Width and height of image in degrees (0.025 to 0.5)"
-                  },
-                  cloud_score: {
-                    type: "boolean",
-                    description: "Calculate the percentage of the image covered by clouds"
-                  }
-                },
-                required: ["lon", "lat"]
-              }
-            }
+            // {
+            //   name: "nasa_earth",
+            //   description: "Earth - Landsat satellite imagery",
+            //   inputSchema: {
+            //     type: "object",
+            //     properties: {
+            //       lon: {
+            //         type: "number",
+            //         description: "Longitude of the imagery location"
+            //       },
+            //       lat: {
+            //         type: "number",
+            //         description: "Latitude of the imagery location"
+            //       },
+            //       date: {
+            //         type: "string",
+            //         description: "Date of imagery (YYYY-MM-DD format). If not specified, most recent imagery is used"
+            //       },
+            //       dim: {
+            //         type: "number",
+            //         description: "Width and height of image in degrees (0.025 to 0.5)"
+            //       },
+            //       cloud_score: {
+            //         type: "boolean",
+            //         description: "Calculate the percentage of the image covered by clouds"
+            //       }
+            //     },
+            //     required: ["lon", "lat"]
+            //   }
+            // }
           ]
         };
       }
@@ -1549,10 +1561,12 @@ async function startServer() {
         method: z.literal("nasa/cmr"),
         params: z.object({
           keyword: z.string().optional(),
+          search_type: z.enum(['collections', 'granules']).optional(),
+          format: z.enum(['json', 'umm_json', 'atom', 'echo10', 'iso19115', 'iso_smap', 'kml']).optional(),
           limit: z.number().optional(),
           page: z.number().optional(),
           sort_key: z.string().optional()
-        }).optional()
+        }).passthrough().optional()
       }),
       async (request) => {
         return await handleToolCall("nasa/cmr", request.params || {});
@@ -1659,22 +1673,22 @@ async function startServer() {
       }
     );
     
-    // Earth Handler
-    server.setRequestHandler(
-      z.object({ 
-        method: z.literal("nasa/earth"),
-        params: z.object({
-          lon: z.number().or(z.string().regex(/^-?\d+(\.\d+)?$/).transform(Number)),
-          lat: z.number().or(z.string().regex(/^-?\d+(\.\d+)?$/).transform(Number)),
-          date: z.string().optional(),
-          dim: z.number().optional(),
-          cloud_score: z.boolean().optional()
-        }).optional()
-      }),
-      async (request) => {
-        return await handleToolCall("nasa/earth", request.params || {});
-      }
-    );
+    // Earth Handler - COMMENTED OUT: NASA Earth API is archived and replaced with GIBS
+    // server.setRequestHandler(
+    //   z.object({ 
+    //     method: z.literal("nasa/earth"),
+    //     params: z.object({
+    //       lon: z.number().or(z.string().regex(/^-?\d+(\.\d+)?$/).transform(Number)),
+    //       lat: z.number().or(z.string().regex(/^-?\d+(\.\d+)?$/).transform(Number)),
+    //       date: z.string().optional(),
+    //       dim: z.number().optional(),
+    //       cloud_score: z.boolean().optional()
+    //     }).optional()
+    //   }),
+    //   async (request) => {
+    //     return await handleToolCall("nasa/earth", request.params || {});
+    //   }
+    // );
     
     // Scout Handler
     server.setRequestHandler(
@@ -2151,14 +2165,14 @@ export function registerMcpTools() {
       return await handleToolCall('jpl/periodic_orbits', args);
     });
 
-    // Register Earth tool
-    registerGlobalTool('mcp__nasaearth', async (args: Record<string, any>) => {
-      serverInstance?.sendLoggingMessage({
-        level: "info",
-        data: `MCP NASA Earth called with args: ${JSON.stringify(args)}`,
-      });
-      return await handleToolCall('nasa/earth', args);
-    });
+    // Register Earth tool - COMMENTED OUT: NASA Earth API is archived and replaced with GIBS
+    // registerGlobalTool('mcp__nasaearth', async (args: Record<string, any>) => {
+    //   serverInstance?.sendLoggingMessage({
+    //     level: "info",
+    //     data: `MCP NASA Earth called with args: ${JSON.stringify(args)}`,
+    //   });
+    //   return await handleToolCall('nasa/earth', args);
+    // });
 
     // Register Scout tool
     registerGlobalTool('mcp__jplscout', async (args: Record<string, any>) => {
