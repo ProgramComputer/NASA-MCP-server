@@ -12,9 +12,7 @@
   "scripts": {
     "build": "npm install && tsc && shx chmod +x dist/*.js",
     "start": "node dist/index.js",
-    "start:sse": "node dist/sse-server.js",
     "dev": "tsx watch src/index.ts",
-    "dev:sse": "tsx watch src/sse-server.ts",
     "lint": "eslint .",
     "test": "jest",
     "direct-test": "ts-node src/tests/direct-api-test.ts",

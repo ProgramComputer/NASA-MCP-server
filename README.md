@@ -35,12 +35,6 @@ You can also pass the API key as a command line argument:
 npx -y @programcomputer/nasa-mcp-server@latest --nasa-api-key=YOUR_API_KEY
 ```
 
-### Using SuperGateway for Server-Sent Events (SSE)
-
-You can use [SuperGateway](https://github.com/supercorp-ai/supergateway) for Server-Sent Events (SSE).
-
-**The developers of NASA-MCP-server DO NOT ENDORSE the SuperGateway repository. This information is provided for those who wish to implement SSE functionality at their own discretion.**
-
 ### Manual Installation
 
 ```bash
