@@ -49,32 +49,6 @@ npm install
 NASA_API_KEY=YOUR_API_KEY npm start
 ```
 
-### Running on Cursor
-
-Configuring Cursor 🖥️ Note: Requires Cursor version 0.45.6+
-
-To configure NASA MCP Server in Cursor:
-
-Create or edit an `mcp.json` file in your Cursor configuration directory with the following content:
-
-```json
-{
-  "mcpServers": {
-    "nasa-mcp": {
-      "command": "npx",
-      "args": ["-y", "@programcomputer/nasa-mcp-server@latest"],
-      "env": {
-        "NASA_API_KEY": "your-api-key"
-      }
-    }
-  }
-}
-```
-
-Replace `your-api-key` with your NASA API key from https://api.nasa.gov/.
-
-After adding the configuration, restart Cursor to see the new NASA tools. The Composer Agent will automatically use NASA MCP when appropriate for space-related queries.
-
 ## Environment Variables
 
 The server can be configured with the following environment variables:
