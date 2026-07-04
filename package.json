@@ -42,7 +42,7 @@
     "@modelcontextprotocol/sdk": "^1.9.0",
     "axios": "",
     "cors": "",
-    "dotenv": "",
+    "dotenv": "^17.2.0",
     "express": "",
     "zod": ""
   },
