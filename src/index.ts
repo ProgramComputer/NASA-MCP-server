@@ -412,7 +412,7 @@ function createMcpServer(): Server {
       {
         name: "NASA MCP Server",
         description: "Model Context Protocol server for NASA APIs",
-        version: "1.0.13"
+        version: "1.0.14"
       },
       {
         capabilities: {
