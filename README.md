@@ -48,7 +48,7 @@ npm install
 # Run with your API key
 NASA_API_KEY=YOUR_API_KEY npm start
 ```
-
+Replace YOUR_API_KEY with your NASA API key from <https://api.nasa.gov/>.
 ## Environment Variables
 
 The server can be configured with the following environment variables:
