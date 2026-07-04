@@ -28,6 +28,7 @@ Thumbs.db
 start-sse-server.sh
 
 # Secrets
+.npmrc
 *_key*
 *apikey*
 *secret*
