@@ -39,24 +39,26 @@ export function setupEnvironment() {
     const rootEnvPath = path.join(currentDir, '.env');
     const distEnvPath = path.join(currentDir, 'dist', '.env');
     
-    // First try standard .env loading
-    dotenv.config();
-    
+    // First try standard .env loading.
+    // quiet: true suppresses dotenv v17+'s startup banner ("injecting env…"),
+    // which is printed to stdout and would corrupt the stdio JSON-RPC stream.
+    dotenv.config({ quiet: true });
+
     // If running from dist, also try parent directory
     if (currentDir.includes('dist')) {
       const parentEnvPath = path.join(currentDir, '..', '.env');
       if (fs.existsSync(parentEnvPath)) {
-        dotenv.config({ path: parentEnvPath });
+        dotenv.config({ path: parentEnvPath, quiet: true });
       }
     }
-    
+
     // Also try explicit paths
     if (fs.existsSync(rootEnvPath)) {
-      dotenv.config({ path: rootEnvPath });
+      dotenv.config({ path: rootEnvPath, quiet: true });
     }
-    
+
     if (fs.existsSync(distEnvPath)) {
-      dotenv.config({ path: distEnvPath });
+      dotenv.config({ path: distEnvPath, quiet: true });
     }
     
     // Ensure dist directory has a copy of .env

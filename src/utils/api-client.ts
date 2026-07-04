@@ -3,10 +3,13 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { transformParamsToHyphenated } from './param-transformer';
 
-// Try to load environment variables from .env file with absolute path
-dotenv.config();
+// Try to load environment variables from .env file with absolute path.
+// quiet: true suppresses dotenv v17+'s "injecting env" banner, which is
+// written to stdout and would corrupt the stdio JSON-RPC stream (this module
+// is imported by index.ts, so these calls run during server startup).
+dotenv.config({ quiet: true });
 // Also try with explicit path as fallback
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env'), quiet: true });
 
 // NASA API Base URLs
 export const NASA_API_BASE_URL = 'https://api.nasa.gov';
@@ -28,7 +31,7 @@ export async function nasaApiRequest(
     if (!apiKey) {
       try {
         const envPath = path.resolve(process.cwd(), '.env');
-        dotenv.config({ path: envPath });
+        dotenv.config({ path: envPath, quiet: true });
         apiKey = process.env.NASA_API_KEY;
       } catch (error) {
         console.error('Error loading .env file:', error);
@@ -124,7 +127,7 @@ export async function jplApiRequest(
       // If other JPL endpoints require a key but it's missing, try loading .env
       try {
         const envPath = path.resolve(process.cwd(), '.env');
-        dotenv.config({ path: envPath });
+        dotenv.config({ path: envPath, quiet: true });
         apiKey = process.env.NASA_API_KEY;
         if (apiKey) {
           paramsToSend.api_key = apiKey;
