@@ -18,8 +18,10 @@ import { resources, addResource as addResourceCore, Resource } from './resources
 
 // Load environment variables with enhanced setup
 setupEnvironment();
-// Also load with standard dotenv for compatibility
-dotenv.config();
+// Also load with standard dotenv for compatibility.
+// quiet: true suppresses dotenv v17+'s startup banner, which is written to
+// stdout and would corrupt the stdio JSON-RPC stream (breaks the MCP client).
+dotenv.config({ quiet: true });
 
 // Keep a reference to the server for notifications
 let serverInstance: Server | null = null;
