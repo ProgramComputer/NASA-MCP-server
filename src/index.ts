@@ -2,6 +2,8 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
 import dotenv from "dotenv";
 import { setupHandlers } from "./handlers/setup";
 import { setupEnvironment } from "./utils/env-setup";
@@ -15,6 +17,7 @@ import path from 'path';
 import { nasaApiRequest, jplApiRequest } from './utils/api-client';
 import { apodParamsSchema } from './handlers/nasa/apod';
 import { resources, addResource as addResourceCore, Resource } from './resources';
+import type { Server as HttpServer } from "http";
 
 // Load environment variables with enhanced setup
 setupEnvironment();
@@ -400,10 +403,9 @@ const mcpPrompts = [
 // Combine all prompts
 const allPrompts = [...nasaPrompts, ...jplPrompts, ...mcpPrompts];
 
-async function startServer() {
-  try {
-    // Initialize resources
-    initializeResources();
+function createMcpServer(): Server {
+  // Initialize resources
+  initializeResources();
     
     // Initialize MCP server with proper capabilities structure
     const server = new Server(
@@ -415,13 +417,13 @@ async function startServer() {
       {
         capabilities: {
           resources: {
-            uriSchemes: ["nasa", "jpl"]
+            listChanged: true
           },
           tools: {
-            callSchema: CallToolRequestSchema
+            listChanged: true
           },
           prompts: {
-            list: allPrompts
+            listChanged: true
           },
           logging: {}
         }
@@ -1772,7 +1774,12 @@ async function startServer() {
       }
     );
     
-    // Use stdio transport for this main server
+    return server;
+}
+
+async function startStdioServer() {
+  try {
+    const server = createMcpServer();
     const stdioTransport = new StdioServerTransport();
     await server.connect(stdioTransport);
     
@@ -1781,9 +1788,123 @@ async function startServer() {
       data: "Server started with stdio transport",
     });
   } catch (error) {
-    console.error("Error starting server:", error);
+    console.error("Error starting stdio server:", error);
     process.exit(1);
   }
+}
+
+let httpServer: HttpServer | null = null;
+
+async function startHttpServer() {
+  const host = process.env.MCP_HTTP_HOST || "127.0.0.1";
+  const port = Number.parseInt(process.env.MCP_HTTP_PORT || process.env.PORT || "3000", 10);
+  const endpointPath = process.env.MCP_HTTP_PATH || "/mcp";
+
+  if (Number.isNaN(port)) {
+    console.error("Invalid MCP_HTTP_PORT/PORT value");
+    process.exit(1);
+  }
+
+  const app = createMcpExpressApp({ host });
+
+  app.post(endpointPath, async (req, res) => {
+    const server = createMcpServer();
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true
+    });
+    let cleanedUp = false;
+
+    const cleanup = async () => {
+      if (cleanedUp) {
+        return;
+      }
+      cleanedUp = true;
+
+      try {
+        await transport.close();
+        await server.close();
+      } catch (error) {
+        console.error("Error cleaning up HTTP MCP transport:", error);
+      } finally {
+        if (serverInstance === server) {
+          serverInstance = null;
+        }
+      }
+    };
+
+    res.on("close", () => {
+      cleanup().catch((error) => {
+        console.error("Error cleaning up closed HTTP MCP response:", error);
+      });
+    });
+
+    try {
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+    } catch (error) {
+      console.error("Error handling Streamable HTTP MCP request:", error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: "2.0",
+          error: {
+            code: -32603,
+            message: "Internal server error"
+          },
+          id: null
+        });
+      }
+      await cleanup();
+    }
+  });
+
+  app.get(endpointPath, (_req, res) => {
+    res.status(405).set("Allow", "POST").json({
+      jsonrpc: "2.0",
+      error: {
+        code: -32000,
+        message: "Method not allowed."
+      },
+      id: null
+    });
+  });
+
+  app.delete(endpointPath, (_req, res) => {
+    res.status(405).set("Allow", "POST").json({
+      jsonrpc: "2.0",
+      error: {
+        code: -32000,
+        message: "Method not allowed."
+      },
+      id: null
+    });
+  });
+
+  httpServer = app.listen(port, host, () => {
+    console.error(`NASA MCP Server listening on http://${host}:${port}${endpointPath}`);
+  });
+
+  httpServer.on("error", (error) => {
+    console.error("Error starting Streamable HTTP server:", error);
+    process.exit(1);
+  });
+}
+
+async function startServer() {
+  const transport = (process.env.MCP_TRANSPORT || "stdio").toLowerCase();
+
+  if (transport === "stdio") {
+    await startStdioServer();
+    return;
+  }
+
+  if (transport === "http" || transport === "streamable-http" || transport === "streamable_http") {
+    await startHttpServer();
+    return;
+  }
+
+  console.error(`Unsupported MCP_TRANSPORT "${process.env.MCP_TRANSPORT}". Use "stdio" or "http".`);
+  process.exit(1);
 }
 
 // Add a function to handle prompts
@@ -1972,6 +2093,11 @@ startServer().catch(error => {
 
 // Handle stdin close for graceful shutdown
 process.stdin.on("close", () => {
+  const transport = (process.env.MCP_TRANSPORT || "stdio").toLowerCase();
+  if (transport !== "stdio") {
+    return;
+  }
+
   serverInstance?.sendLoggingMessage({
     level: "info",
     data: "NASA MCP Server shutting down...",
@@ -1982,6 +2108,22 @@ process.stdin.on("close", () => {
   setTimeout(() => {
     process.exit(0);
   }, 100);
+});
+
+process.on("SIGINT", () => {
+  if (httpServer) {
+    httpServer.close(() => {
+      process.exit(0);
+    });
+    return;
+  }
+
+  if (serverInstance) {
+    serverInstance.close().finally(() => process.exit(0));
+    return;
+  }
+
+  process.exit(0);
 });
 
 // Helper function to register MCP tools
@@ -2195,4 +2337,4 @@ export function registerMcpTools() {
 }
 
 // Call the registration function
-registerMcpTools(); 
+registerMcpTools();

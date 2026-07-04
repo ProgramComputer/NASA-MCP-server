@@ -19,11 +19,6 @@ async function testNasaApis() {
     {
       name: "nasa-mcp-test-client",
       version: "1.0.0"
-    },
-    {
-      capabilities: {
-        tools: {}
-      }
     }
   );
   
@@ -200,4 +195,4 @@ async function testNasaApis() {
 testNasaApis().catch(error => {
   console.error('Test failed:', error);
   process.exit(1);
-}); 
+});

@@ -82,6 +82,26 @@ The server can be configured with the following environment variables:
 | Variable | Description |
 |----------|-------------|
 | `NASA_API_KEY` | Your NASA API key (get at api.nasa.gov) |
+| `MCP_TRANSPORT` | Transport mode: `stdio` (default) or `http` for Streamable HTTP |
+| `MCP_HTTP_HOST` | Host for Streamable HTTP mode (default: `127.0.0.1`) |
+| `MCP_HTTP_PORT` | Port for Streamable HTTP mode (default: `3000`) |
+| `MCP_HTTP_PATH` | MCP endpoint path for Streamable HTTP mode (default: `/mcp`) |
+
+## Transport Modes
+
+By default, the server runs over stdio for local MCP clients such as Cursor and Claude Desktop.
+
+To run the optional Streamable HTTP transport:
+
+```bash
+MCP_TRANSPORT=http MCP_HTTP_PORT=3000 NASA_API_KEY=YOUR_API_KEY npm start
+```
+
+The Streamable HTTP endpoint will be available at:
+
+```text
+http://127.0.0.1:3000/mcp
+```
 
 ## Included NASA APIs
 
@@ -267,15 +287,16 @@ For detailed examples, see the [Inspector Test Examples](docs/inspector-test-exa
 
 ## MCP Client Usage
 
-This server follows the official Model Context Protocol. Here's an example of how to use it with the MCP SDK:
+This server follows the official Model Context Protocol. For local clients, use the default stdio configuration shown above. For Streamable HTTP mode, start the server with `MCP_TRANSPORT=http`, then connect with the MCP SDK:
 
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { HttpClientTransport } from "@modelcontextprotocol/sdk/client/http.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
 
-const transport = new HttpClientTransport({
-  url: "http://localhost:3000",
-});
+const transport = new StreamableHTTPClientTransport(
+  new URL("http://127.0.0.1:3000/mcp")
+);
 
 const client = new Client({
   name: "mcp-client",
@@ -286,46 +307,61 @@ await client.connect(transport);
 
 // Example: Get today's Astronomy Picture of the Day
 const apodResult = await client.request({
-  method: "nasa/apod", 
-  params: {}
-});
+  method: "tools/call",
+  params: {
+    name: "nasa/apod",
+    arguments: {}
+  }
+}, CallToolResultSchema);
 
 // Example: Get Mars Rover photos
 const marsRoverResult = await client.request({
-  method: "nasa/mars-rover",
-  params: { rover: "curiosity", sol: 1000 }
-});
+  method: "tools/call",
+  params: {
+    name: "nasa/mars-rover",
+    arguments: { rover: "curiosity", sol: 1000 }
+  }
+}, CallToolResultSchema);
 
 // Example: Search for Near Earth Objects
 const neoResults = await client.request({
-  method: "nasa/neo",
+  method: "tools/call",
   params: {
-    start_date: '2023-01-01',
-    end_date: '2023-01-07'
+    name: "nasa/neo",
+    arguments: {
+      start_date: "2023-01-01",
+      end_date: "2023-01-07"
+    }
   }
-});
+}, CallToolResultSchema);
 
 // Example: Get satellite imagery from GIBS
 const satelliteImage = await client.request({
-  method: "nasa/gibs",
+  method: "tools/call",
   params: {
-    layer: 'MODIS_Terra_CorrectedReflectance_TrueColor',
-    date: '2023-01-01'
+    name: "nasa/gibs",
+    arguments: {
+      layer: "MODIS_Terra_CorrectedReflectance_TrueColor",
+      date: "2023-01-01"
+    }
   }
-});
+}, CallToolResultSchema);
 
 // Example: Use the new POWER API
 const powerData = await client.request({
-  method: "nasa/power",
+  method: "tools/call",
   params: {
-    parameters: "T2M,PRECTOTCORR,WS10M",
-    community: "re",
-    latitude: 40.7128,
-    longitude: -74.0060,
-    start: "20220101",
-    end: "20220107"
+    name: "nasa/power",
+    arguments: {
+      parameters: "T2M,PRECTOTCORR,WS10M",
+      community: "re",
+      latitude: 40.7128,
+      longitude: -74.0060,
+      start: "20220101",
+      end: "20220107"
+    }
   }
-});
+}, CallToolResultSchema);
 ```
 
 ## Contributing

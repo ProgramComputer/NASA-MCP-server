@@ -16,11 +16,6 @@ async function testMcpServer() {
     {
       name: "mcp-test-client",
       version: "1.0.0"
-    },
-    {
-      capabilities: {
-        tools: {}
-      }
     }
   );
   
@@ -69,4 +64,4 @@ async function testMcpServer() {
 testMcpServer().catch(error => {
   console.error('Test failed:', error);
   process.exit(1);
-}); 
+});

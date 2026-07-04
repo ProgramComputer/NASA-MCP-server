@@ -166,12 +166,13 @@ export async function nasaPowerHandler(params: PowerParams) {
   } catch (error: any) {
     // Handle Zod validation errors separately
     if (error instanceof z.ZodError) {
-        console.error('Error validating POWER parameters:', error.errors);
+        const issues = error.issues ?? [];
+        console.error('Error validating POWER parameters:', issues);
         return {
             isError: true,
             content: [{
                 type: "text",
-                text: `Error: Invalid parameters for NASA POWER API. Issues: ${error.errors.map(e => `${e.path.join('.')} - ${e.message}`).join('; ')}`
+                text: `Error: Invalid parameters for NASA POWER API. Issues: ${issues.map((e) => `${e.path.join('.')} - ${e.message}`).join('; ')}`
             }]
         };
     }
