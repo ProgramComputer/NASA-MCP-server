@@ -9,7 +9,7 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -89,7 +89,7 @@ function inspectFiles(entries) {
 
 const report = { started_at: new Date().toISOString(), node: process.version, platform: `${process.platform}-${process.arch}`, checks: [] };
 const work = mkdtempSync(join(tmpdir(), 'nasa-mcp-pkg-'));
-if (resolve(work).startsWith(resolve(repoRoot))) throw new Error('temporary directory must be outside the repository');
+if (realpathSync(work).startsWith(realpathSync(repoRoot))) throw new Error('temporary directory must be outside the repository');
 const check = (name, detail) => {
   report.checks.push({ name, ...(detail === undefined ? {} : { detail }) });
   console.log(`ok - ${name}${detail === undefined ? '' : `: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`}`);
@@ -150,7 +150,9 @@ try {
 
   const probe = run(process.execPath, ['-e', `const m=require(${JSON.stringify(PACKAGE)});const keys=Object.keys(require.cache);console.log(JSON.stringify({keys,exports:Object.keys(m)}))`], { cwd: app });
   const { keys, exports } = JSON.parse(probe);
-  const outside = keys.filter((key) => !resolve(key).startsWith(resolve(app) + sep));
+  // Node reports real paths; temp dirs can be symlinks (macOS /var -> /private/var).
+  const appReal = realpathSync(app);
+  const outside = keys.filter((key) => !realpathSync(key).startsWith(appReal + sep));
   if (outside.length) throw new Error(`modules resolved outside the install directory: ${outside.slice(0, 5).join(', ')}`);
   if (!exports.includes('createNasaMcpServer')) throw new Error('library exports are missing createNasaMcpServer');
   check('importing the package loads nothing from the checkout and starts no process', `${keys.length} modules`);

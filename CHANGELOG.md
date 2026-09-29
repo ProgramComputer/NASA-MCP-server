@@ -20,7 +20,7 @@ A reliability and CMR release. It is published as a minor version, but **default
 - **`nasa_power`** sends `time-standard` (the old `time_standard` was ignored by POWER).
 - **Images**: `nasa_apod`, `nasa_epic`, `nasa_images` and `nasa_mars_rover` embed a bounded number of images (`max_images`), only real image responses from nasa.gov hosts, and never null or placeholder image content.
 - **Removed**: fabricated sample resources and resource-template generators (templates now fetch real data), the in-process `global.mcp__*` functions, the no-op `nasa/subscribe` method, and the `setupEnvironment` behaviour that copied `.env` into `dist/`.
-- **Node.js 22 or newer** is required (Node 20 reached end of life in April 2026). Tested on Node 22 and 24 on Linux, Windows and macOS.
+- **Node.js 22 or newer** is required (Node 20 reached end of life in April 2026). CI tests Node 22 and 24 on Linux and Windows, and Node 24 on macOS.
 
 ### Fixes and improvements
 
