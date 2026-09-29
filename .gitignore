@@ -4,9 +4,13 @@
 /yarn-error.log
 /yarn-debug.log
 
-# Build
+# Build and test output
 /dist
 /build
+/.test-build
+/coverage
+*.tgz
+package-smoke-report*.json
 
 # Environment
 .env
@@ -22,7 +26,8 @@
 
 # System Files
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
 # Shell scripts with sensitive data
 *.sh
 start-sse-server.sh

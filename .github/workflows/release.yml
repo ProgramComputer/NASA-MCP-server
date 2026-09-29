@@ -1,0 +1,225 @@
+name: Release
+
+# The only workflow that publishes to npm. Run it manually from main with an
+# existing, immutable release tag. It rebuilds and tests that tag, packs one
+# tarball, runs the package gate on it, publishes exactly that tarball under a
+# non-latest dist-tag via npm trusted publishing (OIDC, with provenance), and
+# then verifies the published artifact from the registry.
+#
+# Promotion to "latest" is a separate owner step: npm OIDC does not authorize
+# `npm dist-tag`. See RELEASING.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish (for example v1.1.0)
+        required: true
+        type: string
+      dist_tag:
+        description: npm dist-tag for the new version (never latest)
+        required: true
+        default: next
+        type: choice
+        options: [next]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+env:
+  PACKAGE: '@programcomputer/nasa-mcp-server'
+
+jobs:
+  build:
+    name: verify tag, test and pack
+    if: github.repository == 'ProgramComputer/NASA-MCP-server'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      sha: ${{ steps.meta.outputs.sha }}
+      tarball: ${{ steps.pack.outputs.tarball }}
+      integrity: ${{ steps.pack.outputs.integrity }}
+    steps:
+      - name: Validate inputs
+        env:
+          TAG: ${{ inputs.tag }}
+          REF: ${{ github.ref }}
+        run: |
+          [[ "$REF" == "refs/heads/main" ]] || { echo "::error::Run this workflow from main (got $REF)"; exit 1; }
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::tag must look like v1.2.3"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify tag, commit and version
+        id: meta
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse "refs/tags/$TAG^{commit}")
+          [[ "$(git cat-file -t "refs/tags/$TAG")" == "tag" ]] || { echo "::error::$TAG must be an annotated tag"; exit 1; }
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$sha" origin/main || { echo "::error::$TAG ($sha) is not on main"; exit 1; }
+          version="${TAG#v}"
+          [[ "$(node -p "require('./package.json').version")" == "$version" ]] || { echo "::error::package.json version does not match $TAG"; exit 1; }
+          [[ "$(node -p "require('./package-lock.json').version")" == "$version" ]] || { echo "::error::package-lock.json version does not match $TAG"; exit 1; }
+          grep -q "^## $version\$" CHANGELOG.md || { echo "::error::CHANGELOG.md has no '## $version' section"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+
+      - name: Version must not exist on npm
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          if npm view "$PACKAGE@$VERSION" version >/dev/null 2>&1; then
+            echo "::error::$PACKAGE@$VERSION already exists on npm; published versions are never replaced"; exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run clean && npm run build
+      - run: npm run docs:check
+      - run: npm test
+
+      - name: Pack
+        id: pack
+        run: |
+          set -euo pipefail
+          npm pack --json > pack.json
+          echo "tarball=$(node -p "require('./pack.json')[0].filename")" >> "$GITHUB_OUTPUT"
+          echo "integrity=$(node -p "require('./pack.json')[0].integrity")" >> "$GITHUB_OUTPUT"
+
+      - name: Package gate on the exact tarball
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          INTEGRITY: ${{ steps.pack.outputs.integrity }}
+        run: node scripts/package-smoke.mjs --tarball "$TARBALL" --expect-integrity "$INTEGRITY" --report package-smoke-report.json
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-tarball
+          path: |
+            ${{ steps.pack.outputs.tarball }}
+            pack.json
+            package-smoke-report.json
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    name: publish to npm (${{ inputs.dist_tag }})
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm-release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-tarball
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          registry-url: https://registry.npmjs.org
+
+      - name: Check tooling and artifact identity
+        env:
+          TARBALL: ${{ needs.build.outputs.tarball }}
+          INTEGRITY: ${{ needs.build.outputs.integrity }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          node -e "const [a,b,c]=process.versions.node.split('.').map(Number);if(a<22||(a===22&&b<14))process.exit(1)"
+          npm_version=$(npm --version)
+          node -e "const [a,b,c]='$npm_version'.split('.').map(Number);if(a<11||(a===11&&(b<5||(b===5&&c<1))))process.exit(1)" || { echo "::error::npm >= 11.5.1 is required for trusted publishing (have $npm_version)"; exit 1; }
+          actual="sha512-$(openssl dgst -sha512 -binary "$TARBALL" | base64 -w0)"
+          [[ "$actual" == "$INTEGRITY" ]] || { echo "::error::tarball integrity changed between build and publish"; exit 1; }
+          if npm view "$PACKAGE@$VERSION" version >/dev/null 2>&1; then
+            echo "::error::$PACKAGE@$VERSION already exists; not republishing"; exit 1
+          fi
+
+      - name: Publish the tested tarball (trusted publishing, provenance)
+        env:
+          TARBALL: ${{ needs.build.outputs.tarball }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: npm publish "./$TARBALL" --tag "$DIST_TAG" --access public --provenance
+
+  verify:
+    name: verify published package (${{ matrix.os }})
+    needs: [build, publish]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.build.outputs.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+
+      - run: npm ci
+      - run: npm run build && npm run build:test
+
+      - name: Wait for the registry and check dist-tag and integrity
+        shell: bash
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          INTEGRITY: ${{ needs.build.outputs.integrity }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            published=$(npm view "$PACKAGE@$VERSION" dist.integrity --prefer-online 2>/dev/null || true)
+            [[ -n "$published" ]] && break
+            sleep 10
+          done
+          [[ "$published" == "$INTEGRITY" ]] || { echo "::error::registry integrity '$published' != tested '$INTEGRITY'"; exit 1; }
+          [[ "$(npm view "$PACKAGE" "dist-tags.$DIST_TAG" --prefer-online)" == "$VERSION" ]] || { echo "::error::dist-tag $DIST_TAG does not point at $VERSION"; exit 1; }
+          echo "latest is still: $(npm view "$PACKAGE" dist-tags.latest --prefer-online)"
+
+      - name: Fresh install from the registry + MCP tests against the installed bin
+        shell: bash
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+          INTEGRITY: ${{ needs.build.outputs.integrity }}
+        run: node scripts/package-smoke.mjs --from-registry "$PACKAGE@$VERSION" --expect-integrity "$INTEGRITY" --report registry-report-${{ matrix.os }}.json
+
+      - name: Provenance and registry signatures
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          npm view "$PACKAGE@$VERSION" dist.attestations --json | tee attestations.json
+          node -e "const a=require('./attestations.json');if(!a||!a.provenance)process.exit(1)" || { echo "::error::no provenance attestation"; exit 1; }
+          dir=$(mktemp -d) && cd "$dir" && npm init -y >/dev/null && npm install "$PACKAGE@$VERSION" --omit=dev --no-fund >/dev/null && npm audit signatures
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: registry-verification-${{ matrix.os }}
+          path: registry-report-*.json
+          if-no-files-found: ignore

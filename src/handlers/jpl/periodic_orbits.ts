@@ -1,92 +1,40 @@
-import axios from 'axios';
-import { addResource } from '../../resources';
-import { transformParamsToHyphenated } from '../../utils/param-transformer';
+import { z } from 'zod';
+import { defineTool, READ_ONLY_REMOTE } from '../../tools/types';
+import { jsonResult } from '../common';
+import { jplGet } from './common';
 
-// Define expected parameters based on documentation
-// Required: sys, family
-// Optional: libr, branch, periodmin, periodmax, periodunits, jacobimin, jacobimax, stabmin, stabmax
-interface PeriodicOrbitParams {
-  sys: string;
-  family: string;
-  libr?: number;
-  branch?: string;
-  periodmin?: number;
-  periodmax?: number;
-  periodunits?: string;
-  jacobimin?: number;
-  jacobimax?: number;
-  stabmin?: number;
-  stabmax?: number;
-}
+const SERVICE = 'JPL Three-Body Periodic Orbits API';
 
-/**
- * Handler for JPL Three-Body Periodic Orbits API
- * 
- * Fetches data on periodic orbits in specified three-body systems.
- * 
- * @param args Request parameters conforming to PeriodicOrbitParams
- * @returns API response
- */
-export async function periodicOrbitsHandler(args: PeriodicOrbitParams) {
-  try {
-    // Validate required parameters
-    if (!args.sys || !args.family) {
-      throw new Error('Missing required parameters: sys and family must be provided.');
+export const periodicOrbitsInputSchema = z
+  .strictObject({
+    sys: z.string().trim().regex(/^[a-z]+-[a-z]+$/, 'must be a system such as earth-moon or sun-earth').describe('Three-body system, e.g. earth-moon, sun-earth, mars-phobos.'),
+    family: z.string().trim().regex(/^[a-z_]+$/, 'must be a family name such as halo, dro or lyapunov').describe('Orbit family, e.g. halo, dro, lyapunov, vertical, axial, butterfly.'),
+    libr: z.int().min(1).max(5).describe('Libration point 1-5 (required by some families).').optional(),
+    branch: z.string().trim().regex(/^[A-Za-z]{1,3}$/, 'must be a branch code such as N, S, E or W').describe('Branch (required by some families), e.g. N or S.').optional(),
+    periodmin: z.number().describe('Minimum period.').optional(),
+    periodmax: z.number().describe('Maximum period.').optional(),
+    periodunits: z.enum(['s', 'h', 'd', 'TU']).describe('Units for periodmin/periodmax.').optional(),
+    jacobimin: z.number().describe('Minimum Jacobi constant.').optional(),
+    jacobimax: z.number().describe('Maximum Jacobi constant.').optional(),
+    stabmin: z.number().describe('Minimum stability index.').optional(),
+    stabmax: z.number().describe('Maximum stability index.').optional()
+  })
+  .superRefine((args, ctx) => {
+    const pairs = [['periodmin', 'periodmax'], ['jacobimin', 'jacobimax'], ['stabmin', 'stabmax']] as const;
+    for (const [min, max] of pairs) {
+      if (args[min] !== undefined && args[max] !== undefined && args[min]! > args[max]!) ctx.addIssue({ code: 'custom', path: [max], message: `${max} must be >= ${min}` });
     }
-    
-    // Base URL for the Periodic Orbits API
-    const baseUrl = 'https://ssd-api.jpl.nasa.gov/periodic_orbits.api';
-    
-    // Transform parameter names from underscore to hyphenated format
-    const transformedParams = transformParamsToHyphenated(args);
-    
-    // Make the API request using GET with parameters
-    const response = await axios.get(baseUrl, { params: transformedParams });
-    const data = response.data;
-    
-    // Create a resource URI 
-    // Example: jpl://periodic-orbits?sys=earth-moon&family=halo&libr=1&branch=N
-    let resourceUri = `jpl://periodic-orbits?sys=${encodeURIComponent(args.sys)}&family=${encodeURIComponent(args.family)}`;
-    let resourceName = `Periodic Orbits: ${args.sys} / ${args.family}`;
-    if (args.libr) {
-      resourceUri += `&libr=${args.libr}`;
-      resourceName += ` / L${args.libr}`;
-    }
-    if (args.branch) {
-      resourceUri += `&branch=${encodeURIComponent(args.branch)}`;
-      resourceName += ` / Branch ${args.branch}`;
-    }
-    // Potentially add filter params to URI/Name if needed for uniqueness
+  });
 
-    // Add response to resources
-    addResource(resourceUri, {
-      name: resourceName,
-      mimeType: "application/json", 
-      text: JSON.stringify(data, null, 2)
-    });
-    
-    // Format the response for MCP
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify(data, null, 2)
-      }]
-    };
-  } catch (error: any) {
-    let errorMessage = `Error accessing JPL Periodic Orbits API: ${error.message}`;
-    if (error.response) {
-      // Include more detail from the API response if available
-      errorMessage += `\nStatus: ${error.response.status}\nData: ${JSON.stringify(error.response.data)}`;
-    }
-    return {
-      content: [{
-        type: "text",
-        text: errorMessage
-      }],
-      isError: true
-    };
+export const periodicOrbitsTool = defineTool({
+  name: 'jpl_periodic_orbits',
+  title: 'JPL three-body periodic orbits',
+  description: 'Periodic orbits (halo, DRO, Lyapunov, ...) in three-body systems from the JPL Three-Body Periodic Orbits database.',
+  inputSchema: periodicOrbitsInputSchema,
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    const { response, source } = await jplGet(ctx, SERVICE, '/periodic_orbits.api', { ...args });
+    const data = response.json<{ count?: number | string }>();
+    return jsonResult(SERVICE, `Periodic orbits for ${args.sys} ${args.family}${data.count !== undefined ? ` (${data.count} orbits)` : ''}.`, data, source, `Periodic orbits ${args.sys} ${args.family}`, 'Add period, Jacobi or stability bounds.');
   }
-}
-
-// Export default for dynamic imports in index.ts
-export default periodicOrbitsHandler; 
+});

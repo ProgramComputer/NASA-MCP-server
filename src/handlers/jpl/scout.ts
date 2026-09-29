@@ -1,121 +1,63 @@
 import { z } from 'zod';
-import { jplApiRequest } from '../../utils/api-client';
-import { ScoutParams } from '../setup';
-import { addResource } from '../../resources'; // Import addResource
+import { defineTool, READ_ONLY_REMOTE } from '../../tools/types';
+import { UpstreamError } from '../../util/errors';
+import { jsonResult } from '../common';
+import { jplGet } from './common';
 
-/**
- * Process the Scout API result and format it for display.
- */
-function processScoutResult(data: any, params: ScoutParams): string {
-  // Handle API-level errors first
-  if (data.error_code) {
-    return `Error from Scout API (${data.error_code}): ${data.error_msg}`;
-  }
-  if (data.error) { // Handle other error format like "object does not exist"
-    return `Error from Scout API: ${data.error}`;
-  }
+const SERVICE = 'JPL Scout API';
 
-  let summary = `## JPL Scout Data\n\n`;
-
-  if (params.tdes || params.orbit_id) {
-    // Single object result
-    if (!data.data || data.data.length === 0) {
-      // If no specific error was returned, but data is empty, state that.
-      return summary + `No data array found for object specified by ${params.tdes ? 'tdes='+params.tdes : ''}${params.orbit_id ? 'orbit_id='+params.orbit_id : ''}. Object may not exist or data type not available.`;
+export const scoutInputSchema = z
+  .strictObject({
+    tdes: z.string().trim().regex(/^[A-Za-z0-9]{1,16}$/, 'must be a NEOCP temporary designation such as P21Eolo').describe('NEOCP temporary designation (object mode).').optional(),
+    plot: z
+      .string()
+      .regex(/^(el|ca|sr)(:(el|ca|sr))*$/, 'must be el, ca, sr or a colon-separated combination')
+      .describe('Object mode: base64 plots to include: el (elements), ca (close approach), sr (systematic ranging), colon-separated.')
+      .optional(),
+    file: z.enum(['list', 'mpc']).describe('Object mode: include the observation file as a list or in MPC format.').optional(),
+    orbits: z.boolean().describe('Object mode: include sampled orbits.').optional(),
+    n_orbits: z.int().min(1).max(1000).describe('Object mode: number of sampled orbits (1-1000).').optional(),
+    limit: z
+      .int()
+      .min(1)
+      .max(1000)
+      .describe('List mode: return at most this many objects. Applied by this server; Scout has no limit parameter.')
+      .optional()
+  })
+  .superRefine((args, ctx) => {
+    const objectOnly = ['plot', 'file', 'orbits', 'n_orbits'] as const;
+    if (!args.tdes && objectOnly.some((key) => args[key] !== undefined)) {
+      ctx.addIssue({ code: 'custom', message: `${objectOnly.filter((key) => args[key] !== undefined).join(', ')} require tdes` });
     }
-    const obj = data.data[0];
-    summary += `**Object:** ${obj.neo || 'N/A'} (${params.tdes || params.orbit_id})\n`;
-    summary += `**Last Observed:** ${obj.last_obs || 'N/A'}\n`;
-    summary += `**Observations:** ${obj.n_obs || 'N/A'}\n`;
-    summary += `**RMS:** ${obj.rms || 'N/A'}\n`;
-    summary += `**MOID (AU):** ${obj.moid || 'N/A'}\n`;
-    summary += `**V_inf (km/s):** ${obj.v_inf || 'N/A'}\n`;
-    summary += `**Impact Probability:** ${obj.impact_prob || 'N/A'}\n`;
-    if (obj.summary) {
-      summary += `**Summary:** ${obj.summary}\n`;
-    }
-    // Add more fields if file=ephem, obs, crit, all are requested
-  } else {
-    // List result
-    summary += `**Total Objects Found:** ${data.total || 'N/A'}\n`;
-    summary += `**Showing:** ${data.count !== undefined ? data.count : 'N/A'} (Limit: ${params.limit || data.limit || 'default'})\n\n`;
-    if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-      data.data.forEach((obj: any, index: number) => {
-        summary += `### ${index + 1}. ${obj.neo || 'Unknown Designation'}\n`;
-        summary += `  - Last Observed: ${obj.last_obs || 'N/A'}\n`;
-        summary += `  - Observations: ${obj.n_obs || 'N/A'}\n`;
-        summary += `  - MOID (AU): ${obj.moid || 'N/A'}\n`;
-        summary += `  - Impact Probability: ${obj.impact_prob || 'N/A'}\n`;
-      });
-    } else {
-      summary += `No objects found matching criteria or returned in list.\n`;
-    }
-  }
-  
-  return summary;
-}
+    if (args.tdes && args.limit !== undefined) ctx.addIssue({ code: 'custom', message: 'limit applies to the list mode only (omit tdes)' });
+  });
 
-/**
- * Handle requests for JPL's Scout API
- * Scout is a hazard assessment system that automatically calculates the potential 
- * for an object to be an impactor based on the available observations.
- */
-export async function jplScoutHandler(params: ScoutParams) {
-  try {
-    // Call the Scout API using jplApiRequest
-    const result = await jplApiRequest('/scout.api', params);
-
-    // Check for errors returned by jplApiRequest itself (network, etc.)
-    if (result.isError) {
-      return result; // Already formatted error response
-    }
-    
-    // Check for API-specific errors within the payload (different formats)
-    if (result.error_code || result.error) {
-       return {
-        isError: true,
-        content: [{
-          type: "text",
-          text: `Error from Scout API: ${result.error_msg || result.error}`
-        }]
-      };
-    }
-
-    // Process the successful result
-    const summaryText = processScoutResult(result, params);
-    
-    // Add the result as an MCP resource
-    let resourceUri = 'jpl://scout/list';
-    if (params.tdes) {
-      resourceUri = `jpl://scout?tdes=${params.tdes}`;
-    } else if (params.orbit_id) {
-      resourceUri = `jpl://scout?orbit_id=${params.orbit_id}`;
-    } else if (params.limit) {
-      resourceUri = `jpl://scout/list?limit=${params.limit}`;
-    } // Add more specific URIs if other params like 'file' are used
-    
-    addResource(resourceUri, {
-      name: `JPL Scout Data ${params.tdes || params.orbit_id || '(List)'}`,
-      mimeType: 'application/json',
-      text: JSON.stringify(result, null, 2)
+export const scoutTool = defineTool({
+  name: 'jpl_scout',
+  title: 'JPL Scout NEOCP hazard assessment',
+  description: 'JPL Scout trajectory analysis and hazard assessment for unconfirmed objects on the Minor Planet Center NEO Confirmation Page.',
+  inputSchema: scoutInputSchema,
+  retiredParameters: {
+    orbit_id: 'The JPL Scout API does not accept orbit-id (HTTP 400). Query by tdes.',
+    summary: 'The JPL Scout API does not accept a summary parameter (HTTP 400); list mode already returns summaries.'
+  },
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    const { response, source } = await jplGet(ctx, SERVICE, '/scout.api', {
+      tdes: args.tdes,
+      plot: args.plot,
+      file: args.file,
+      orbits: args.orbits,
+      'n-orbits': args.n_orbits
     });
-
-    return {
-      content: [{
-        type: "text",
-        text: summaryText
-      }],
-      isError: false
-    };
-    
-  } catch (error: any) { // Catch unexpected errors during processing
-    console.error('Error in JPL Scout handler:', error);
-    return {
-      isError: true,
-      content: [{
-        type: "text",
-        text: `Handler Error: ${error.message || 'An unexpected error occurred processing Scout data'}`
-      }]
-    };
+    const data = response.json<{ data?: unknown[]; count?: number | string; error?: string }>();
+    if (typeof data.error === 'string') {
+      throw new UpstreamError(SERVICE, 'http', `${SERVICE}: ${data.error}${args.tdes ? ` (tdes ${args.tdes})` : ''}`);
+    }
+    if (args.tdes) return jsonResult(SERVICE, `Scout data for ${args.tdes}.`, data, source, `Scout ${args.tdes}`);
+    const total = Array.isArray(data.data) ? data.data.length : 0;
+    if (args.limit !== undefined && Array.isArray(data.data) && data.data.length > args.limit) data.data = data.data.slice(0, args.limit);
+    const summary = total === 0 ? 'Scout currently lists no objects.' : `Scout lists ${total} objects${args.limit !== undefined && total > args.limit ? `; showing the first ${args.limit}` : ''}.`;
+    return jsonResult(SERVICE, summary, data, source, 'Scout list');
   }
-} 
+});

@@ -1,123 +1,84 @@
 import { z } from 'zod';
-import axios from 'axios';
-import { addResource } from '../../resources';
+import { defineTool, READ_ONLY_REMOTE } from '../../tools/types';
+import { ToolInputError, UpstreamError } from '../../util/errors';
+import { httpRequest, summarizeErrorBody } from '../../util/http';
+import { boundingBoxSchema, formatNumber, isoDate } from '../../util/validation';
+import { buildUrl, json, sourceInfo, text } from '../common';
 
-// Schema for validating GIBS request parameters
-export const gibsParamsSchema = z.object({
-  date: z.string().optional(),
-  layer: z.string(),
-  resolution: z.number().optional(),
-  format: z.enum(['png', 'jpg', 'jpeg']).optional().default('png'),
-  bbox: z.string().optional()
+const SERVICE = 'NASA GIBS WMS';
+const WMS_URL = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+const MAX_SIDE_PIXELS = 4096;
+
+export const gibsInputSchema = z.strictObject({
+  layer: z
+    .string()
+    .regex(/^[A-Za-z0-9_.-]+$/, 'must be a GIBS layer identifier')
+    .describe('GIBS layer identifier, e.g. MODIS_Terra_CorrectedReflectance_TrueColor'),
+  date: isoDate('Imagery date (YYYY-MM-DD).'),
+  format: z.enum(['png', 'jpg', 'jpeg']).default('png').describe('Image format.'),
+  resolution: z
+    .number()
+    .gt(0)
+    .max(40)
+    .default(2)
+    .describe('Output resolution in pixels per degree (default 2, i.e. 720x360 for the whole globe).'),
+  bbox: boundingBoxSchema
+    .default([-180, -90, 180, 90])
+    .describe('Area as west,south,east,north in decimal degrees (EPSG:4326). Defaults to the whole globe.')
 });
 
-// Define the request parameter type based on the schema
-export type GibsParams = z.infer<typeof gibsParamsSchema>;
-
-/**
- * Handle requests for NASA's Global Imagery Browse Services (GIBS) API
- */
-export async function nasaGibsHandler(params: GibsParams) {
-  try {
-    const { date, layer, resolution, format, bbox } = params;
-    
-    // Default bbox if not provided
-    const bboxParam = bbox || '-180,-90,180,90';
-    
-    // Construct the GIBS URL
-    const baseUrl = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
-    
-    // Convert format to proper MIME type format for WMS
-    const mimeFormat = format === 'jpg' ? 'jpeg' : format;
-    
-    const requestParams = {
+export const gibsTool = defineTool({
+  name: 'nasa_gibs',
+  title: 'NASA GIBS satellite imagery',
+  description:
+    'Render a Global Imagery Browse Services (GIBS) layer for a date and bounding box as an image (WMS GetMap, EPSG:4326).',
+  inputSchema: gibsInputSchema,
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    const [west, south, east, north] = args.bbox;
+    if (west > east) {
+      throw new ToolInputError('bbox crosses the antimeridian (west > east); request each side separately.');
+    }
+    const width = Math.round((east - west) * args.resolution);
+    const height = Math.round((north - south) * args.resolution);
+    if (width < 1 || height < 1 || width > MAX_SIDE_PIXELS || height > MAX_SIDE_PIXELS) {
+      throw new ToolInputError(
+        `bbox and resolution produce a ${width}x${height} image; each side must be between 1 and ${MAX_SIDE_PIXELS} pixels.`
+      );
+    }
+    const mime = args.format === 'png' ? 'image/png' : 'image/jpeg';
+    // WMS 1.3.0 with EPSG:4326 uses latitude-first axis order.
+    const url = buildUrl(WMS_URL, {
       SERVICE: 'WMS',
       VERSION: '1.3.0',
       REQUEST: 'GetMap',
-      FORMAT: `image/${mimeFormat}`,
-      LAYERS: layer,
+      FORMAT: mime,
+      LAYERS: args.layer,
       CRS: 'EPSG:4326',
-      BBOX: bboxParam,
-      WIDTH: 720,
-      HEIGHT: 360,
-      TIME: date
-    };
-    
-    // Make the request to GIBS directly
-    const response = await axios({
-      url: baseUrl,
-      params: requestParams,
-      responseType: 'arraybuffer',
-      timeout: 30000
+      BBOX: [south, west, north, east].map(formatNumber).join(','),
+      WIDTH: width,
+      HEIGHT: height,
+      TIME: args.date
     });
-    
-    // Convert response to base64
-    const imageBase64 = Buffer.from(response.data).toString('base64');
-    
-    // Register the image as a resource
-    const formattedDate = date || new Date().toISOString().split('T')[0];
-    const resourceUri = `nasa://gibs/imagery?layer=${layer}&date=${formattedDate}`;
-    
-    addResource(resourceUri, {
-      name: `NASA GIBS: ${layer} (${formattedDate})`,
-      mimeType: `image/${format}`,
-      // Store metadata as text (optional)
-      text: JSON.stringify({
-        layer: layer,
-        date: formattedDate,
-        bbox: bboxParam,
-        width: 720,
-        height: 360
-      }),
-      // Store the actual image data as a blob
-      blob: Buffer.from(response.data)
-    });
-    
-    // Return metadata and image data
-    return {
-      content: [
-        {
-          type: "text",
-          text: `NASA GIBS satellite imagery for ${layer} on ${date || 'latest'}`
-        },
-        {
-          type: "image",
-          mimeType: `image/${format}`,
-          data: imageBase64
-        },
-        {
-          type: "text",
-          text: `Resource registered at: ${resourceUri}`
-        }
-      ],
-      isError: false
-    };
-  } catch (error: any) {
-    console.error('Error in GIBS handler:', error);
-    
-    if (error.name === 'ZodError') {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Invalid request parameters: ${error.message}`
-          }
-        ],
-        isError: true
-      };
+    const response = await httpRequest(ctx.fetch, { service: SERVICE, url });
+    const contentType = response.contentType.split(';')[0].trim().toLowerCase();
+    if (!contentType.startsWith('image/')) {
+      // GIBS reports WMS errors as XML ServiceExceptionReports with HTTP 200.
+      const message = /<ServiceException(?:\s[^>]*)?>([\s\S]*?)<\/ServiceException>/i
+        .exec(response.text())?.[1]
+        ?.replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      throw new UpstreamError(SERVICE, 'invalid_response', `${SERVICE} did not return an image: ${message ?? summarizeErrorBody(response.text(), contentType)}`);
     }
-    
+    const source = sourceInfo(ctx, SERVICE, response.url);
+    const metadata = { layer: args.layer, date: args.date, bbox: args.bbox, width, height, mimeType: contentType, source };
     return {
       content: [
-        {
-          type: "text",
-          text: `Error retrieving GIBS data: ${error.message}`
-        }
+        text(`GIBS ${args.layer} on ${args.date}, bbox ${args.bbox.join(',')}, ${width}x${height} ${contentType}.`),
+        { type: 'image', data: response.body.toString('base64'), mimeType: contentType }
       ],
-      isError: true
+      resource: { name: `GIBS ${args.layer} ${args.date}`, mimeType: 'application/json', text: json(metadata), source }
     };
   }
-}
-
-// Add a default export for the handler
-export default nasaGibsHandler; 
+});

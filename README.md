@@ -45,10 +45,13 @@ git clone https://github.com/ProgramComputer/NASA-MCP-server.git
 cd NASA-MCP-server
 npm install
 
+# Build
+npm run build
+
 # Run with your API key
 NASA_API_KEY=YOUR_API_KEY npm start
 ```
-Replace YOUR_API_KEY with your NASA API key from <https://api.nasa.gov/>.
+Replace YOUR_API_KEY with your NASA API key from <https://api.nasa.gov/>. Requires Node.js 22 or newer.
 ## Environment Variables
 
 The server can be configured with the following environment variables:
@@ -56,6 +59,8 @@ The server can be configured with the following environment variables:
 | Variable | Description |
 |----------|-------------|
 | `NASA_API_KEY` | Your NASA API key (get at api.nasa.gov) |
+| `FIRMS_MAP_KEY` | Your FIRMS MAP_KEY for fire data (get at firms.modaps.eosdis.nasa.gov/api/map_key); separate from `NASA_API_KEY` |
+| `NASA_MCP_CMR_URL` | Optional CMR search URL (default: `https://cmr.earthdata.nasa.gov/search`) |
 | `MCP_TRANSPORT` | Transport mode: `stdio` (default) or `http` for Streamable HTTP |
 | `MCP_HTTP_HOST` | Host for Streamable HTTP mode (default: `127.0.0.1`) |
 | `MCP_HTTP_PORT` | Port for Streamable HTTP mode (default: `3000`) |
@@ -175,6 +180,45 @@ Each NASA API is exposed through standardized MCP methods:
     "longitude": -74.0060, // Required: Longitude
     "start": "20220101", // Required: Start date (YYYYMMDD)
     "end": "20220107" // Required: End date (YYYYMMDD)
+  }
+}
+```
+
+### CMR (Common Metadata Repository)
+
+```json
+{
+  "method": "nasa/cmr",
+  "params": {
+    "keyword": "sea surface temperature", // Optional: Collections only
+    "search_type": "collections", // Optional: "collections" (default) or "granules"
+    "bounding_box": "-100,10,-60,40", // Optional: west,south,east,north ("bbox" also works)
+    "temporal": "2024-06-01T00:00:00Z,2024-09-30T23:59:59Z", // Optional: start,end
+    "limit": 5 // Optional: 1-100, default 10
+  }
+}
+```
+
+Results come back in a compact format by default (`"response_mode": "raw"` returns CMR's own metadata, and `fields` picks which fields to return). To get the next page, send back only the `next_cursor` from the response:
+
+```json
+{
+  "method": "nasa/cmr",
+  "params": {
+    "cursor": "cmr1..." // Required: next_cursor from the previous response
+  }
+}
+```
+
+### FIRMS (Fire Information for Resource Management System)
+
+```json
+{
+  "method": "nasa/firms",
+  "params": {
+    "bbox": "-125,32,-114,42", // Required: west,south,east,north (or latitude, longitude and radius_km)
+    "days": 1, // Optional: 1-5
+    "source": "VIIRS_SNPP_NRT" // Optional: FIRMS data source
   }
 }
 ```

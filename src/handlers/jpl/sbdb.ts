@@ -1,93 +1,77 @@
 import { z } from 'zod';
-import axios from 'axios';
-import { transformParamsToHyphenated } from '../../utils/param-transformer';
+import { defineTool, READ_ONLY_REMOTE, type ToolContext } from '../../tools/types';
+import { ToolInputError } from '../../util/errors';
+import { jsonResult, text } from '../common';
+import { jplGet } from './common';
 
-// Schema for validating JPL Small-Body Database request parameters
-export const sbdbParamsSchema = z.object({
-  sstr: z.string().min(1),
-  full_precision: z.boolean().optional().default(false),
-  solution_epoch: z.string().optional(),
-  orbit_class: z.boolean().optional().default(false),
-  body_type: z.enum(['ast', 'com', 'all']).optional().default('all'),
-  phys_par: z.boolean().optional().default(false),
-  close_approach: z.boolean().optional().default(false),
-  ca_time: z.enum(['all', 'now', 'fut', 'past']).optional().default('all'),
-  ca_dist: z.enum(['au', 'ld', 'lu']).optional().default('au'),
-  ca_tbl: z.enum(['elem', 'approach']).optional().default('approach'),
-  format: z.enum(['json', 'xml']).optional().default('json')
-});
+const SERVICE = 'JPL SBDB API';
 
-// Define the request parameter type based on the schema
-export type SbdbParams = z.infer<typeof sbdbParamsSchema>;
+export const sbdbInputSchema = z
+  .strictObject({
+    sstr: z.string().trim().min(1).max(200).describe('Search string: name, designation or number (e.g. Ceres, 433, 2019 OK).').optional(),
+    spk: z.int().positive().describe('SPK-ID of the object.').optional(),
+    des: z.string().trim().min(1).max(100).describe('Primary designation or IAU number.').optional(),
+    ca_data: z.boolean().describe('Include close-approach data.').optional(),
+    cad: z.boolean().describe('DEPRECATED alias for ca_data.').optional(),
+    ca_body: z.string().trim().min(1).max(40).describe('Limit close approaches to this body (e.g. Earth); needs ca_data.').optional(),
+    phys_par: z.boolean().describe('Include physical parameters.').optional(),
+    full_prec: z.boolean().describe('Full-precision orbital elements.').optional(),
+    discovery: z.boolean().describe('Include discovery circumstances.').optional(),
+    vi_data: z.boolean().describe('Include Sentry virtual-impactor data.').optional(),
+    alt_orbits: z.boolean().describe('Include alternate orbits.').optional(),
+    sat: z.boolean().describe('Include satellite data.').optional()
+  })
+  .superRefine((args, ctx) => {
+    const selectors = [args.sstr, args.spk, args.des].filter((value) => value !== undefined).length;
+    if (selectors !== 1) ctx.addIssue({ code: 'custom', message: 'provide exactly one of sstr, spk or des' });
+    if (args.cad !== undefined && args.ca_data !== undefined && args.cad !== args.ca_data) {
+      ctx.addIssue({ code: 'custom', message: 'cad is an alias of ca_data; they conflict' });
+    }
+  });
 
-/**
- * Handle requests for JPL's Small-Body Database
- */
-export async function jplSbdbHandler(params: SbdbParams) {
-  try {
-    const { 
-      sstr, 
-      full_precision, 
-      solution_epoch, 
-      orbit_class, 
-      body_type, 
-      phys_par, 
-      close_approach, 
-      ca_time, 
-      ca_dist, 
-      ca_tbl, 
-      format 
-    } = params;
-    
-    // Construct the SBDB query URL
-    const url = 'https://ssd-api.jpl.nasa.gov/sbdb.api';
-    
-    // Prepare the query parameters
-    const queryParams: Record<string, any> = {
-      sstr
-    };
-    
-    // Add optional parameters
-    if (full_precision) queryParams.full_precision = full_precision ? 'yes' : 'no';
-    if (solution_epoch) queryParams.solution_epoch = solution_epoch;
-    if (orbit_class) queryParams.orbit_class = orbit_class ? 'yes' : 'no';
-    if (body_type !== 'all') queryParams.body_type = body_type;
-    if (phys_par) queryParams.phys_par = phys_par ? 'yes' : 'no';
-    if (close_approach) queryParams.close_approach = close_approach ? 'yes' : 'no';
-    if (ca_time !== 'all') queryParams.ca_time = ca_time;
-    if (ca_dist !== 'au') queryParams.ca_dist = ca_dist;
-    if (ca_tbl !== 'approach') queryParams.ca_tbl = ca_tbl;
-    if (format !== 'json') queryParams.format = format;
-    
-    // Transform parameter names from underscore to hyphenated format
-    const transformedParams = transformParamsToHyphenated(queryParams);
-    
-    // Make the request to SBDB API
-    const response = await axios.get(url, { params: transformedParams });
-    
-    // Return the response
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Retrieved data for small body "${params.sstr}".`
-        },
-        {
-          type: "text",
-          text: JSON.stringify(response.data, null, 2)
-        }
-      ],
-      isError: false
-    };
-  } catch (error: any) {
-    console.error('Error in JPL SBDB handler:', error);
-    
-    return {
-      isError: true,
-      content: [{
-        type: "text",
-        text: `Error: ${error.message || 'An unexpected error occurred'}`
-      }]
-    };
+export type SbdbArgs = z.output<typeof sbdbInputSchema>;
+
+export async function fetchSbdb(ctx: ToolContext, args: SbdbArgs) {
+  const caData = args.ca_data ?? args.cad;
+  if (args.ca_body && !caData) throw new ToolInputError('ca_body requires ca_data: true');
+  const { response, source } = await jplGet(
+    ctx,
+    SERVICE,
+    '/sbdb.api',
+    {
+      sstr: args.sstr,
+      spk: args.spk,
+      des: args.des,
+      'ca-data': caData,
+      'ca-body': args.ca_body,
+      'phys-par': args.phys_par,
+      'full-prec': args.full_prec,
+      discovery: args.discovery,
+      'vi-data': args.vi_data,
+      'alt-orbits': args.alt_orbits,
+      sat: args.sat
+    },
+    // SBDB answers ambiguous searches with HTTP 300 and a candidate list.
+    (status) => status === 200 || status === 300
+  );
+  return { data: response.json<Record<string, unknown>>(), status: response.status, source };
+}
+
+export const sbdbTool = defineTool({
+  name: 'jpl_sbdb',
+  title: 'JPL Small-Body Database lookup',
+  description: 'Orbital and physical data for one asteroid or comet from the JPL Small-Body Database (SBDB).',
+  inputSchema: sbdbInputSchema,
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    const { data, status, source } = await fetchSbdb(ctx, args);
+    const label = args.sstr ?? args.des ?? String(args.spk);
+    if (status === 300) {
+      return jsonResult(SERVICE, `Several SBDB objects match "${label}"; refine the search using one of the listed designations.`, data, source, `SBDB matches for ${label}`);
+    }
+    if (!data.object && typeof data.message === 'string') {
+      return { content: [text(`SBDB: ${data.message} ("${label}").`)] };
+    }
+    return jsonResult(SERVICE, `SBDB data for "${label}".`, data, source, `SBDB ${label}`);
   }
-} 
+});
