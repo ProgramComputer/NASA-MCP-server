@@ -1,63 +1,33 @@
-import axios from 'axios';
-import { addResource } from '../../resources';
-import { transformParamsToHyphenated } from '../../utils/param-transformer';
+import { z } from 'zod';
+import { defineTool, READ_ONLY_REMOTE } from '../../tools/types';
+import { jsonResult } from '../common';
+import { jplGet } from './common';
 
-/**
- * Handler for JPL Julian Date Calendar Conversion API
- * 
- * This API converts between Julian dates and calendar dates (UTC)
- * 
- * @param args Request parameters
- * @returns API response
- */
-export async function jdCalHandler(args: Record<string, any>) {
-  try {
-    // Base URL for the JD Calendar API
-    const baseUrl = 'https://ssd-api.jpl.nasa.gov/jd_cal.api';
-    
-    // Validate parameters
-    if (!args.jd && !args.cd) {
-      return {
-        content: [{
-          type: "text",
-          text: "Error: Either a Julian date (jd) or calendar date (cd) must be provided."
-        }],
-        isError: true
-      };
-    }
-    
-    // Transform parameter names from underscore to hyphenated format
-    const transformedParams = transformParamsToHyphenated(args);
-    
-    // Make the API request
-    const response = await axios.get(baseUrl, { params: transformedParams });
-    const data = response.data;
-    
-    // Add response to resources
-    const resourceUri = `jpl://jd_cal/${args.jd || args.cd}`;
-    addResource(resourceUri, {
-      name: `Julian Date / Calendar Date Conversion: ${args.jd || args.cd}`,
-      mimeType: "application/json",
-      text: JSON.stringify(data, null, 2)
-    });
-    
-    // Format the response
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify(data, null, 2)
-      }]
-    };
-  } catch (error: any) {
-    return {
-      content: [{
-        type: "text",
-        text: `Error accessing JPL Julian Date Calendar API: ${error.message}`
-      }],
-      isError: true
-    };
+const SERVICE = 'JPL JD-Calendar API';
+
+export const jdCalInputSchema = z
+  .strictObject({
+    jd: z.string().trim().regex(/^-?\d+(\.\d+)?$/, 'must be a Julian date number, e.g. 2451545.0').describe('Julian date to convert to a calendar date.').optional(),
+    cd: z
+      .string()
+      .trim()
+      .regex(/^-?\d{1,4}-\d{2}-\d{2}([T_ ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?)?$/, 'must be YYYY-MM-DD or YYYY-MM-DDThh:mm:ss')
+      .describe('Calendar date (UTC) to convert to a Julian date.')
+      .optional()
+  })
+  .superRefine((args, ctx) => {
+    if ((args.jd === undefined) === (args.cd === undefined)) ctx.addIssue({ code: 'custom', message: 'provide exactly one of jd or cd' });
+  });
+
+export const jdCalTool = defineTool({
+  name: 'jpl_jd_cal',
+  title: 'JPL Julian date converter',
+  description: 'Convert between Julian dates and calendar dates (UTC) with the JPL JD-Calendar API.',
+  inputSchema: jdCalInputSchema,
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    const { response, source } = await jplGet(ctx, SERVICE, '/jd_cal.api', { jd: args.jd, cd: args.cd?.replace(' ', '_') });
+    const data = response.json<Record<string, unknown>>();
+    return jsonResult(SERVICE, `Converted ${args.jd ?? args.cd}.`, data, source, `JD/calendar ${args.jd ?? args.cd}`);
   }
-}
-
-// Export default for dynamic imports
-export default jdCalHandler; 
+});

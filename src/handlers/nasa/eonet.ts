@@ -1,113 +1,66 @@
 import { z } from 'zod';
-import axios from 'axios';
-import { nasaApiRequest } from '../../utils/api-client';
-import { EonetParams } from '../setup';
-import { addResource } from '../../resources';
+import { defineTool, READ_ONLY_REMOTE } from '../../tools/types';
+import { httpRequest } from '../../util/http';
+import { boundedText, buildUrl, json, sourceInfo, text } from '../common';
 
-// Define the EONET API base URL
-const EONET_API_BASE_URL = 'https://eonet.gsfc.nasa.gov/api';
+const SERVICE = 'NASA EONET API';
+const EVENTS_URL = 'https://eonet.gsfc.nasa.gov/api/v3/events';
 
-/**
- * Handle requests for NASA's Earth Observatory Natural Event Tracker (EONET) API
- */
-export async function nasaEonetHandler(params: EonetParams) {
-  try {
-    const { category, days, source, status, limit } = params;
-    
-    // Build the endpoint path
-    let endpointPath = '/v3/events';
-    const apiParams: Record<string, any> = {};
-    
-    // Add query parameters - using more default values to ensure we get results
-    if (days) apiParams.days = days;
-    if (source) apiParams.source = source;
-    if (status) apiParams.status = status;
-    if (limit) apiParams.limit = limit;
-    
-    // If no status is provided, default to "all" to ensure we get some events
-    if (!status) apiParams.status = "all";
-    
-    // If no days parameter, default to 60 days to ensure we get more events 
-    if (!days) apiParams.days = 60;
-    
-    // If a category is specified, use the category-specific endpoint
-    if (category) {
-      endpointPath = `/v3/categories/${category}`;
-    }
-    
-    // Use direct axios call with the EONET-specific base URL
-    const response = await axios.get(`${EONET_API_BASE_URL}${endpointPath}`, {
-      params: apiParams,
-      timeout: 10000 // 10 second timeout
+export const eonetInputSchema = z.strictObject({
+  category: z
+    .string()
+    .regex(/^[A-Za-z]+(,[A-Za-z]+)*$/, 'must be one or more EONET category IDs, e.g. wildfires,volcanoes')
+    .describe('EONET category ID(s), comma-separated: e.g. wildfires, severeStorms, volcanoes, seaLakeIce.')
+    .optional(),
+  days: z.int().min(1).max(3650).default(60).describe('Only events active within this many prior days.'),
+  source: z
+    .string()
+    .regex(/^[A-Za-z0-9_]+(,[A-Za-z0-9_]+)*$/, 'must be comma-separated EONET source IDs')
+    .describe('EONET source ID(s), comma-separated, e.g. InciWeb,EO.')
+    .optional(),
+  status: z.enum(['open', 'closed', 'all']).default('all').describe('Event status filter.'),
+  limit: z.int().min(1).max(500).default(50).describe('Maximum number of events (1-500).')
+});
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- loosely typed upstream JSON */
+export const eonetTool = defineTool({
+  name: 'nasa_eonet',
+  title: 'NASA EONET natural events',
+  description:
+    'Natural events (wildfires, storms, volcanoes, ice, ...) from the Earth Observatory Natural Event Tracker. Filters are sent exactly as given; no automatic broadening.',
+  inputSchema: eonetInputSchema,
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    const url = buildUrl(EVENTS_URL, {
+      category: args.category,
+      days: args.days,
+      source: args.source,
+      status: args.status,
+      limit: args.limit
     });
-    
-    // If we don't have any events, try again with broader parameters
-    if (!response.data.events || response.data.events.length === 0) {
-      // Reset to the main events endpoint for maximum results
-      endpointPath = '/v3/events';
-      
-      // Use broader parameters
-      const broadParams = {
-        status: 'all',       // Get both open and closed events
-        days: 90,            // Look back further
-        limit: limit || 50   // Increase the limit
+    const response = await httpRequest(ctx.fetch, { service: SERVICE, url });
+    const data = response.json<any>();
+    const source = sourceInfo(ctx, SERVICE, response.url);
+    const events: any[] = Array.isArray(data?.events) ? data.events : [];
+    const results = events.map((event) => {
+      const geometry: any[] = Array.isArray(event.geometry) ? event.geometry : [];
+      const latest = geometry[geometry.length - 1];
+      return {
+        id: event.id,
+        title: event.title,
+        closed: event.closed ?? null,
+        categories: (event.categories ?? []).map((c: any) => c.id ?? c.title),
+        sources: (event.sources ?? []).map((s: any) => ({ id: s.id, url: s.url })),
+        geometry_count: geometry.length,
+        latest_geometry: latest ? { date: latest.date, type: latest.type, coordinates: latest.coordinates } : null,
+        link: event.link ?? null
       };
-      
-      const broadResponse = await axios.get(`${EONET_API_BASE_URL}${endpointPath}`, {
-        params: broadParams,
-        timeout: 10000
-      });
-      
-      // Register the response as a resource
-      const resourceId = `nasa://eonet/events?days=${broadParams.days}&status=${broadParams.status}`;
-      addResource(resourceId, {
-        name: `EONET Events (${broadParams.days} days, ${broadParams.status} status)`,
-        mimeType: 'application/json',
-        text: JSON.stringify(broadResponse.data, null, 2)
-      });
-      
-      return { 
-        content: [{
-          type: "text",
-          text: `Used broader search criteria due to no events found with original parameters. Found ${broadResponse.data.events?.length || 0} events.`
-        }],
-        isError: false
-      };
-    }
-    
-    // Register the response as a resource
-    const resourceParams = [];
-    if (days) resourceParams.push(`days=${days}`);
-    if (category) resourceParams.push(`category=${category}`);
-    if (status) resourceParams.push(`status=${status}`);
-    
-    const resourceId = `nasa://eonet/events${category ? '/categories/' + category : ''}?${resourceParams.join('&')}`;
-    addResource(resourceId, {
-      name: `EONET Events${category ? ' (' + category + ')' : ''}`,
-      mimeType: 'application/json',
-      text: JSON.stringify(response.data, null, 2)
     });
-    
-    // Return the original result
-    return { 
-      content: [{
-        type: "text",
-        text: `Found ${response.data.events?.length || 0} EONET events.`
-      }],
-      isError: false
-    };
-  } catch (error: any) {
-    console.error('Error in EONET handler:', error);
-    
+    const summary = results.length === 0 ? 'No EONET events matched the filters.' : `Found ${results.length} EONET events${results.length === args.limit ? ` (limit ${args.limit} reached)` : ''}.`;
     return {
-      isError: true,
-      content: [{
-        type: "text",
-        text: `Error: ${error.message || 'An unexpected error occurred'}`
-      }]
+      content: [text(summary), ...(results.length ? [boundedText(json(results), SERVICE, 'Lower limit or days.')] : [])],
+      resource: { name: `EONET events${args.category ? ` (${args.category})` : ''}`, mimeType: 'application/json', text: json({ source, data }), source }
     };
   }
-}
-
-// Export the handler function directly as default
-export default nasaEonetHandler; 
+});
+/* eslint-enable @typescript-eslint/no-explicit-any */

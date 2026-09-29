@@ -1,75 +1,39 @@
-import axios from 'axios';
-import { addResource } from '../../resources';
-import { transformParamsToHyphenated } from '../../utils/param-transformer';
+import { z } from 'zod';
+import { defineTool, READ_ONLY_REMOTE } from '../../tools/types';
+import { jsonResult } from '../common';
+import { hyphenate, jplGet } from './common';
 
-/**
- * Handler for JPL NHATS API (Human-accessible NEOs data)
- * 
- * This API provides data from the NASA/JPL NHATS database about Near-Earth Objects (NEOs)
- * that are potentially accessible by human missions.
- * 
- * @param args Request parameters
- * @returns API response
- */
-export async function nhatsHandler(args: Record<string, any>) {
-  try {
-    // Base URL for the NHATS API
-    const baseUrl = 'https://ssd-api.jpl.nasa.gov/nhats.api';
-    
-    // Validate parameters if needed
-    // Parameters are fairly flexible in this API, so minimal validation is needed
-    
-    // Transform parameter names from underscore to hyphenated format
-    const transformedParams = transformParamsToHyphenated(args);
-    
-    // Make the API request
-    const response = await axios.get(baseUrl, { params: transformedParams });
-    const data = response.data;
-    
-    // Create a resource URI that represents this query
-    let resourceUri: string;
-    
-    if (args.des) {
-      // Object mode - query for a specific object
-      resourceUri = `jpl://nhats/object/${args.des}`;
-    } else if (args.spk) {
-      // Object mode - query for a specific object by SPK-ID
-      resourceUri = `jpl://nhats/object/${args.spk}`;
-    } else {
-      // Summary mode - query for a list of objects with constraints
-      const constraints = Object.entries(args)
-        .map(([key, value]) => `${key}=${value}`)
-        .join('&');
-      
-      resourceUri = `jpl://nhats/summary${constraints ? '?' + constraints : ''}`;
-    }
-    
-    // Add response to resources
-    addResource(resourceUri, {
-      name: args.des || args.spk 
-        ? `NHATS data for object: ${args.des || args.spk}`
-        : 'NHATS summary data',
-      mimeType: "application/json",
-      text: JSON.stringify(data, null, 2)
-    });
-    
-    // Format the response
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify(data, null, 2)
-      }]
-    };
-  } catch (error: any) {
-    return {
-      content: [{
-        type: "text",
-        text: `Error accessing JPL NHATS API: ${error.message}`
-      }],
-      isError: true
-    };
+const SERVICE = 'JPL NHATS API';
+
+export const nhatsInputSchema = z
+  .strictObject({
+    dv: z.int().min(4).max(12).describe('Maximum total delta-V in km/s (4-12).').optional(),
+    dur: z.int().min(60).max(450).describe('Maximum total mission duration in days (60-450).').optional(),
+    stay: z.union([z.literal(8), z.literal(16), z.literal(24), z.literal(32)]).describe('Minimum stay at the NEO in days (8, 16, 24 or 32).').optional(),
+    launch: z
+      .enum(['2020-2025', '2025-2030', '2030-2035', '2035-2040', '2040-2045', '2020-2045'])
+      .describe('Launch window.')
+      .optional(),
+    h: z.int().min(16).max(30).describe('Maximum absolute magnitude H (16-30).').optional(),
+    occ: z.int().min(0).max(8).describe('Maximum orbit condition code (0-8).').optional(),
+    des: z.string().trim().min(1).max(100).describe('Object designation, e.g. 99942 (object mode).').optional(),
+    spk: z.int().positive().describe('Object SPK-ID (object mode).').optional(),
+    plot: z.boolean().describe('Include a base64 plot (object mode; large).').optional()
+  })
+  .superRefine((args, ctx) => {
+    if (args.des !== undefined && args.spk !== undefined) ctx.addIssue({ code: 'custom', message: 'provide des or spk, not both' });
+  });
+
+export const nhatsTool = defineTool({
+  name: 'jpl_nhats',
+  title: 'JPL NHATS human-accessible NEOs',
+  description: 'Near-Earth objects accessible to human missions (NHATS): a constrained summary list, or one object by des/spk.',
+  inputSchema: nhatsInputSchema,
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    const { response, source } = await jplGet(ctx, SERVICE, '/nhats.api', hyphenate(args));
+    const data = response.json<{ count?: string | number }>();
+    const label = args.des ?? (args.spk !== undefined ? String(args.spk) : null);
+    return jsonResult(SERVICE, label ? `NHATS data for ${label}.` : `NHATS summary (${data.count ?? 'unknown'} objects).`, data, source, label ? `NHATS ${label}` : 'NHATS summary', 'Add constraints such as dv, dur or h.');
   }
-}
-
-// Export default for dynamic imports
-export default nhatsHandler; 
+});

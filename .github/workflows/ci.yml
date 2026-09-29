@@ -6,27 +6,92 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
+  test:
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['22.x', '24.x']
+        include:
+          - os: macos-latest
+            node: '24.x'
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Use Node.js
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: '20.x'
-          cache: 'npm'
+          persist-credentials: false
 
-      - name: Install dependencies
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install (clean, from lockfile)
         run: npm ci
 
-      - name: Build
-        run: npm run build
+      - name: Lockfile unchanged by install
+        shell: bash
+        run: git diff --exit-code -- package-lock.json package.json
 
       - name: Lint
         run: npm run lint
 
-      - name: Test
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build from a clean state
+        run: |
+          npm run clean
+          npm run build
+
+      - name: Tool docs match the registry
+        run: npm run docs:check
+
+      - name: Tests (unit + stdio/HTTP integration, no network)
         run: npm test
+
+      - name: Pack
+        shell: bash
+        run: |
+          npm pack --json > pack.json
+          node -e "const p=require('./pack.json')[0];console.log(p.filename, p.integrity, p.entryCount + ' files')"
+
+      - name: Package gate (install tarball outside the repo, run MCP tests against its bin)
+        shell: bash
+        run: node scripts/package-smoke.mjs --tarball "$(node -p "require('./pack.json')[0].filename")" --report package-smoke-report.json
+
+      - name: Upload package report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-report-${{ matrix.os }}-node${{ matrix.node }}
+          path: |
+            pack.json
+            package-smoke-report.json
+          if-no-files-found: ignore
+
+  audit:
+    name: production dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+          cache: npm
+      - run: npm ci
+      - name: npm audit (runtime dependencies, high and above)
+        run: npm audit --omit=dev --audit-level=high

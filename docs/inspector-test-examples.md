@@ -1,319 +1,144 @@
-# NASA MCP Server - Inspector Test Examples
+# MCP Inspector examples
 
-This document provides example requests you can copy and paste into the MCP Inspector to test each of the NASA APIs implemented in our server.
-
-## Running the Inspector
-
-To run the MCP Inspector with our NASA MCP server:
+Run the server under the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
 
 ```bash
-# Run the provided script
-./scripts/test-with-inspector.sh
-
-# Or run manually
-npx @modelcontextprotocol/inspector node dist/index.js
+npm run build
+NASA_API_KEY=YOUR_NASA_API_KEY FIRMS_MAP_KEY=YOUR_FIRMS_MAP_KEY npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
-## Table of Contents
-- [Server Information](#server-information)
-- [NASA APIs](#nasa-apis)
-  - [APOD (Astronomy Picture of the Day)](#apod)
-  - [EPIC (Earth Polychromatic Imaging Camera)](#epic)
-  - [NEO (Near Earth Object Web Service)](#neo)
-  - [GIBS (Global Imagery Browse Services)](#gibs)
-  - [CMR (Common Metadata Repository)](#cmr)
-  - [FIRMS (Fire Information)](#firms)
-  - [NASA Image and Video Library](#nasa-images)
-  - [Exoplanet Archive](#exoplanet)
-  - [DONKI (Space Weather Database)](#donki)
-  - [Mars Rover Photos](#mars-rover)
-  - [EONET (Earth Observatory Events)](#eonet)
-  - [NASA Sounds API](#sounds)
-  - [POWER (Energy Resources)](#power)
-- [JPL APIs](#jpl-apis)
-  - [SBDB (Small-Body Database)](#sbdb)
-  - [Fireball Data](#fireball)
-  - [Scout API](#scout)
+Each block below is a `tools/call` request body (`name` + `arguments`). Paste the arguments into the Inspector's **Tools** tab. Every example is validated against the tool schemas by `test/unit/docs.test.ts`. The full parameter reference is in [TOOLS.md](TOOLS.md).
 
-## Server Information
+## Earthdata
 
-Get the manifest of available APIs:
+CMR collection search (compact output, first page):
 
 ```json
-{
-  "method": "tools/manifest",
-  "params": {}
-}
+{ "name": "nasa_cmr", "arguments": { "keyword": "sea surface temperature", "bounding_box": "-100,10,-60,40", "temporal": "2024-06-01T00:00:00Z,2024-09-30T23:59:59Z", "limit": 5 } }
 ```
 
-## NASA APIs
-
-### APOD
-
-Get the Astronomy Picture of the Day:
+Continue that search with only the returned cursor:
 
 ```json
-{
-  "method": "nasa/apod",
-  "params": {
-    "date": "2023-01-01"
-  }
-}
+{ "name": "nasa_cmr", "arguments": { "cursor": "cmr1.<paste next_cursor here>" } }
 ```
 
-Get a random APOD:
+CMR granules in a collection, newest first, selected fields only:
 
 ```json
-{
-  "method": "nasa/apod",
-  "params": {
-    "count": 1
-  }
-}
+{ "name": "nasa_cmr", "arguments": { "search_type": "granules", "collection_concept_id": "C1996881146-POCLOUD", "sort_key": "-start_date", "fields": ["title", "time_start", "links"], "limit": 3 } }
 ```
 
-### EPIC
-
-Get the latest EPIC images:
+CMR collections with facets, filtered by platform and instrument:
 
 ```json
-{
-  "method": "nasa/epic",
-  "params": {
-    "collection": "natural"
-  }
-}
+{ "name": "nasa_cmr", "arguments": { "platform": "Terra", "instrument": "MODIS", "processing_level_id": "3", "include_facets": true, "limit": 3 } }
 ```
 
-### NEO
-
-Get Near Earth Objects for a date range:
+CMR upstream metadata (UMM-JSON, raw):
 
 ```json
-{
-  "method": "nasa/neo",
-  "params": {
-    "start_date": "2023-01-01",
-    "end_date": "2023-01-02"
-  }
-}
+{ "name": "nasa_cmr", "arguments": { "concept_id": "C1996881146-POCLOUD", "format": "umm_json", "response_mode": "raw" } }
 ```
 
-### GIBS
-
-Get a satellite imagery layer:
+FIRMS fire detections for a box (needs `FIRMS_MAP_KEY`):
 
 ```json
-{
-  "method": "nasa/gibs",
-  "params": {
-    "layer": "MODIS_Terra_CorrectedReflectance_TrueColor",
-    "date": "2023-01-01"
-  }
-}
+{ "name": "nasa_firms", "arguments": { "bbox": "-125,32,-114,42", "days": 2, "source": "VIIRS_NOAA20_NRT", "limit": 50 } }
 ```
 
-### CMR
-
-Basic collection search:
+FIRMS around a point (converted to a bbox):
 
 ```json
-{
-  "method": "nasa/cmr",
-  "params": {
-    "keyword": "hurricane",
-    "limit": 2
-  }
-}
+{ "name": "nasa_firms", "arguments": { "latitude": 37.45, "longitude": -122.18, "radius_km": 25 } }
 ```
 
-Advanced collection search with spatial parameters:
+GIBS true-colour imagery:
 
 ```json
-{
-  "method": "nasa/cmr",
-  "params": {
-    "search_type": "collections",
-    "platform": "Terra",
-    "bbox": "-180,-90,180,90",
-    "limit": 5,
-    "include_facets": true
-  }
-}
+{ "name": "nasa_gibs", "arguments": { "layer": "MODIS_Terra_CorrectedReflectance_TrueColor", "date": "2024-01-01", "bbox": "-20,30,40,60", "resolution": 8 } }
 ```
 
-Granule search:
+EONET open wildfires:
 
 ```json
-{
-  "method": "nasa/cmr",
-  "params": {
-    "search_type": "granules",
-    "concept_id": "C1000000000-ORNL_DAAC",
-    "limit": 3
-  }
-}
+{ "name": "nasa_eonet", "arguments": { "category": "wildfires", "status": "open", "days": 20, "limit": 10 } }
 ```
 
-### FIRMS
-
-Get fire data:
+POWER daily temperature:
 
 ```json
-{
-  "method": "nasa/firms",
-  "params": {
-    "area": "world",
-    "days": 1
-  }
-}
+{ "name": "nasa_power", "arguments": { "parameters": "T2M,PRECTOTCORR", "community": "RE", "latitude": 40.7128, "longitude": -74.006, "start": "20220101", "end": "20220107" } }
 ```
 
-### NASA Images
-
-Search NASA's image library:
+EPIC natural-colour images:
 
 ```json
-{
-  "method": "nasa/images",
-  "params": {
-    "q": "apollo 11",
-    "media_type": "image",
-    "year_start": 1969,
-    "year_end": 1970
-  }
-}
+{ "name": "nasa_epic", "arguments": { "collection": "natural", "date": "2024-01-01" } }
 ```
 
-### Exoplanet
-
-Search for exoplanets:
+## api.nasa.gov (needs `NASA_API_KEY`)
 
 ```json
-{
-  "method": "nasa/exoplanet",
-  "params": {
-    "select": "pl_name,pl_masse,st_dist",
-    "where": "pl_masse>1",
-    "order": "pl_masse",
-    "limit": 5
-  }
-}
+{ "name": "nasa_apod", "arguments": { "date": "2024-01-01" } }
 ```
 
-### DONKI
-
-Get Coronal Mass Ejection data:
-
 ```json
-{
-  "method": "nasa/donki",
-  "params": {
-    "type": "cme",
-    "startDate": "2022-01-01",
-    "endDate": "2022-01-10"
-  }
-}
+{ "name": "nasa_neo", "arguments": { "start_date": "2024-01-01", "end_date": "2024-01-03" } }
 ```
 
-### Mars Rover
-
-Get photos from Mars Perseverance:
-
 ```json
-{
-  "method": "nasa/mars-rover",
-  "params": {
-    "rover": "perseverance",
-    "sol": 100
-  }
-}
+{ "name": "nasa_donki", "arguments": { "type": "cme", "startDate": "2024-01-01", "endDate": "2024-01-10" } }
 ```
 
-### EONET
-
-Get natural event data:
+## Other NASA services
 
 ```json
-{
-  "method": "nasa/eonet",
-  "params": {
-    "category": "wildfires",
-    "days": 20,
-    "status": "open"
-  }
-}
+{ "name": "nasa_images", "arguments": { "q": "apollo 11", "media_type": "image", "year_start": "1969", "year_end": "1970", "page_size": 5 } }
 ```
 
-### Sounds
-
-Get space sounds:
-
 ```json
-{
-  "method": "nasa/sounds",
-  "params": {
-    "q": "voyager",
-    "limit": 3
-  }
-}
+{ "name": "nasa_exoplanet", "arguments": { "table": "ps", "select": "pl_name,pl_bmasse,sy_dist", "where": "pl_bmasse > 1", "order": "pl_bmasse", "limit": 5 } }
 ```
 
-### POWER
-
-Get solar and meteorological data:
-
 ```json
-{
-  "method": "nasa/power",
-  "params": {
-    "parameters": "T2M,PRECTOTCORR,WS10M",
-    "community": "re",
-    "latitude": 40.7128,
-    "longitude": -74.0060,
-    "start": "20220101",
-    "end": "20220107"
-  }
-}
+{ "name": "nasa_osdr_files", "arguments": { "accession_number": "OSD-87" } }
 ```
 
-## JPL APIs
-
-### SBDB
-
-Query the Small-Body Database:
+## JPL Solar System Dynamics
 
 ```json
-{
-  "method": "jpl/sbdb",
-  "params": {
-    "sstr": "433",
-    "full_precision": true
-  }
-}
+{ "name": "jpl_sbdb", "arguments": { "sstr": "433", "phys_par": true } }
 ```
 
-### Fireball
-
-Get fireball data:
-
 ```json
-{
-  "method": "jpl/fireball",
-  "params": {
-    "date_min": "2022-01-01",
-    "limit": 5
-  }
-}
+{ "name": "jpl_cad", "arguments": { "dist_max": "10LD", "date_min": "now", "date_max": "+60", "sort": "dist" } }
 ```
 
-### Scout
-
-Get Scout data:
+```json
+{ "name": "jpl_sentry", "arguments": { "ip_min": 0.00001, "limit": 10 } }
+```
 
 ```json
-{
-  "method": "jpl/scout",
-  "params": {}
-}
-``` 
+{ "name": "jpl_fireball", "arguments": { "date_min": "2024-01-01", "limit": 5 } }
+```
+
+```json
+{ "name": "jpl_nhats", "arguments": { "dv": 6, "dur": 360 } }
+```
+
+```json
+{ "name": "jpl_scout", "arguments": { "limit": 5 } }
+```
+
+```json
+{ "name": "jpl_jd_cal", "arguments": { "cd": "2000-01-01T12:00:00" } }
+```
+
+```json
+{ "name": "jpl_horizons", "arguments": { "COMMAND": "499", "OBJ_DATA": "YES", "MAKE_EPHEM": "YES", "EPHEM_TYPE": "OBSERVER", "CENTER": "500@399", "START_TIME": "2024-01-01", "STOP_TIME": "2024-01-02", "STEP_SIZE": "1d", "QUANTITIES": "1,9,20,23,24" } }
+```
+
+```json
+{ "name": "jpl_periodic_orbits", "arguments": { "sys": "earth-moon", "family": "halo", "libr": 1, "branch": "N" } }
+```

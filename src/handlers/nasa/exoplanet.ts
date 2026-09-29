@@ -1,114 +1,61 @@
 import { z } from 'zod';
-import axios from 'axios';
-import { addResource } from '../../resources';
+import { defineTool, READ_ONLY_REMOTE } from '../../tools/types';
+import { httpRequest } from '../../util/http';
+import { boundedText, buildUrl, json, sourceInfo, text } from '../common';
 
-// Base URL for NASA's Exoplanet Archive
-const EXOPLANET_API_URL = 'https://exoplanetarchive.ipac.caltech.edu/cgi-bin/nstedAPI/nph-nstedAPI';
+const SERVICE = 'NASA Exoplanet Archive TAP';
+const TAP_SYNC_URL = 'https://exoplanetarchive.ipac.caltech.edu/TAP/sync';
 
-// Schema for validating Exoplanet Archive request parameters
-export const exoplanetParamsSchema = z.object({
-  table: z.string(),
-  select: z.string().optional(),
-  where: z.string().optional(),
-  order: z.string().optional(),
-  format: z.enum(['json', 'csv', 'ipac', 'xml']).optional().default('json'),
-  limit: z.number().int().min(1).max(1000).optional()
+const noStatementBreak = (field: string) =>
+  z
+    .string()
+    .trim()
+    .min(1)
+    .refine((value) => !value.includes(';'), { message: `${field} must be a single ADQL fragment (no ';')` });
+
+export const exoplanetInputSchema = z.strictObject({
+  table: z
+    .string()
+    .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'must be a table name such as ps, pscomppars, cumulative or toi')
+    .describe('TAP table, e.g. ps (Planetary Systems), pscomppars, cumulative (Kepler KOI), toi.'),
+  select: noStatementBreak('select').describe('Columns to return (ADQL select list). Defaults to *.').optional(),
+  where: noStatementBreak('where').describe("ADQL WHERE condition, e.g. disc_year > 2020 and discoverymethod = 'Transit'.").optional(),
+  order: noStatementBreak('order').describe('ADQL ORDER BY expression, e.g. pl_name.').optional(),
+  limit: z.int().min(1).max(1000).default(100).describe('Maximum rows (1-1000).'),
+  format: z.enum(['json', 'csv']).default('json').describe('Result format.')
 });
 
-// Define the request parameter type based on the schema
-export type ExoplanetParams = z.infer<typeof exoplanetParamsSchema>;
-
-/**
- * Handle requests for NASA's Exoplanet Archive
- */
-export async function nasaExoplanetHandler(params: ExoplanetParams) {
-  try {
-    const { table, select, where, order, format, limit } = params;
-    
-    // Construct the API parameters directly - nstedAPI has different params than TAP/sync
-    const apiParams: Record<string, any> = {
-      table: table,
-      format: format
-    };
-    
-    // Add optional parameters if provided
-    if (select) {
-      apiParams.select = select;
-    }
-    
-    if (where) {
-      apiParams.where = where;
-    }
-    
-    if (order) {
-      apiParams.order = order;
-    }
-    
-    if (limit) {
-      apiParams.top = limit; // Use 'top' instead of 'limit' for this API
-    }
-    
-    // Make the request to the Exoplanet Archive
-    const response = await axios.get(EXOPLANET_API_URL, {
-      params: apiParams
-    });
-    
-    // Create a resource ID based on the query parameters
-    const resourceId = `nasa://exoplanet/data?table=${table}${where ? `&where=${encodeURIComponent(where)}` : ''}${limit ? `&limit=${limit}` : ''}`;
-    
-    // Register the response as a resource
-    addResource(resourceId, {
-      name: `Exoplanet data from ${table}${where ? ` with filter` : ''}`,
-      mimeType: format === 'json' ? 'application/json' : 'text/plain',
-      text: format === 'json' ? JSON.stringify(response.data, null, 2) : response.data
-    });
-    
-    // Format response based on the data type
-    if (Array.isArray(response.data) && response.data.length > 0) {
-      // If we got an array of results
-      const count = response.data.length;
+export const exoplanetTool = defineTool({
+  name: 'nasa_exoplanet',
+  title: 'NASA Exoplanet Archive query',
+  description:
+    'Query the NASA Exoplanet Archive through its TAP service (ADQL). Tables use current TAP names such as ps, pscomppars, cumulative and toi.',
+  inputSchema: exoplanetInputSchema,
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    const query =
+      `select top ${args.limit} ${args.select ?? '*'} from ${args.table}` +
+      (args.where ? ` where ${args.where}` : '') +
+      (args.order ? ` order by ${args.order}` : '');
+    const url = buildUrl(TAP_SYNC_URL, { query, format: args.format });
+    const response = await httpRequest(ctx.fetch, { service: SERVICE, url });
+    const source = sourceInfo(ctx, SERVICE, response.url);
+    if (args.format === 'csv') {
+      const body = response.text();
       return {
-        content: [
-          {
-            type: "text",
-            text: `Found ${count} exoplanet records from the ${table} table.`
-          },
-          {
-            type: "text",
-            text: JSON.stringify(response.data.slice(0, 10), null, 2) + 
-                 (count > 10 ? `\n... and ${count - 10} more records` : '')
-          }
-        ],
-        isError: false
-      };
-    } else {
-      // If we got a different format or empty results
-      return { 
-        content: [
-          {
-            type: "text",
-            text: `Exoplanet query complete. Results from ${table} table.`
-          },
-          {
-            type: "text",
-            text: typeof response.data === 'string' ? response.data : JSON.stringify(response.data, null, 2)
-          }
-        ],
-        isError: false
+        content: [text(`Exoplanet Archive CSV result for: ${query}`), boundedText(body, SERVICE, 'Lower limit or select fewer columns.')],
+        resource: { name: `Exoplanet ${args.table} query`, mimeType: 'text/csv', text: body, source }
       };
     }
-  } catch (error: any) {
-    console.error('Error in Exoplanet handler:', error);
-    
+    const rows = response.json<unknown[]>();
+    if (!Array.isArray(rows)) {
+      throw new Error('Exoplanet Archive returned an unexpected JSON payload (expected an array of rows)');
+    }
+    const summary =
+      rows.length === 0 ? `No rows matched in ${args.table}.` : `Found ${rows.length} rows from ${args.table}${rows.length === args.limit ? ` (limit ${args.limit} reached)` : ''}.`;
     return {
-      isError: true,
-      content: [{
-        type: "text",
-        text: `Error accessing NASA Exoplanet Archive: ${error.message || 'Unknown error'}`
-      }]
+      content: [text(`${summary}\nQuery: ${query}`), ...(rows.length ? [boundedText(json(rows), SERVICE, 'Lower limit or select fewer columns.')] : [])],
+      resource: { name: `Exoplanet ${args.table} query`, mimeType: 'application/json', text: json({ source, query, rows }), source }
     };
   }
-}
-
-// Export the handler function directly as default
-export default nasaExoplanetHandler; 
+});

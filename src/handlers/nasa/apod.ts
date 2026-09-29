@@ -1,107 +1,111 @@
 import { z } from 'zod';
-import { nasaApiRequest } from '../../utils/api-client';
-import { addResource } from '../../resources';
-import axios from 'axios';
+import { defineTool, READ_ONLY_REMOTE, type ToolContext, type ToolContent } from '../../tools/types';
+import { daysBetween, isoDate } from '../../util/validation';
+import { boundedText, fetchImage, nasaApiGet, sourceInfo, text, json } from '../common';
 
-// Schema for validating APOD request parameters
-export const apodParamsSchema = z.object({
-  date: z.string().optional(),
-  hd: z.boolean().optional(),
-  count: z.number().int().positive().optional(),
-  start_date: z.string().optional(),
-  end_date: z.string().optional(),
-  thumbs: z.boolean().optional()
-});
+const SERVICE = 'NASA APOD API';
+const MAX_RANGE_DAYS = 100;
 
-// Define the request parameter type based on the schema
-export type ApodParams = z.infer<typeof apodParamsSchema>;
-
-/**
- * Handle requests for NASA's Astronomy Picture of the Day (APOD) API
- */
-export async function nasaApodHandler(params: ApodParams) {
-  try {
-    // Call the NASA APOD API
-    const result = await nasaApiRequest('/planetary/apod', params);
-    
-    // Store results as resources
-    const processedResult = await processApodResultWithBase64(result);
-    
-    return {
-      content: [
-        {
-          type: "text",
-          text: processedResult.summary
-        },
-        ...processedResult.images.map(img => ({
-          type: "text",
-          text: `![${img.title}](${img.url})`
-        })),
-        ...processedResult.images.map(img => ({
-          type: "image",
-          data: img.base64,
-          mimeType: img.mimeType || "image/jpeg"
-        }))
-      ],
-      isError: false
-    };
-  } catch (error: any) {
-    console.error('Error in APOD handler:', error);
-    
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Error retrieving APOD data: ${error.message}`
-        }
-      ],
-      isError: true
-    };
-  }
-}
-
-// New async version that fetches and encodes images as base64
-async function processApodResultWithBase64(result: any) {
-  const results = Array.isArray(result) ? result : [result];
-  let summary = '';
-  const images: any[] = [];
-  for (const apod of results) {
-    const apodId = `nasa://apod/image?date=${apod.date}`;
-    let mimeType = 'image/jpeg';
-    if (apod.url) {
-      if (apod.url.endsWith('.png')) mimeType = 'image/png';
-      else if (apod.url.endsWith('.gif')) mimeType = 'image/gif';
-      else if (apod.url.endsWith('.jpg') || apod.url.endsWith('.jpeg')) mimeType = 'image/jpeg';
+export const apodInputSchema = z
+  .strictObject({
+    date: isoDate('Date of the picture (YYYY-MM-DD). Defaults to today. Cannot be combined with count or start_date/end_date.').optional(),
+    start_date: isoDate('Start of a date range (YYYY-MM-DD).').optional(),
+    end_date: isoDate('End of a date range (YYYY-MM-DD); requires start_date. Defaults to today when start_date is given.').optional(),
+    count: z.int().min(1).max(100).describe('Return this many random pictures (1-100). Cannot be combined with dates.').optional(),
+    thumbs: z.boolean().describe('Include thumbnail URLs for video entries.').optional(),
+    max_images: z
+      .int()
+      .min(0)
+      .max(5)
+      .default(1)
+      .describe('How many pictures to embed as image content (0-5). Remaining entries are listed by URL.')
+  })
+  .superRefine((args, ctx) => {
+    if (args.count !== undefined && (args.date || args.start_date || args.end_date)) {
+      ctx.addIssue({ code: 'custom', message: 'count cannot be combined with date, start_date or end_date' });
     }
-    addResource(apodId, {
-      name: `Astronomy Picture of the Day - ${apod.title}`,
-      mimeType: 'application/json',
-      text: JSON.stringify(apod, null, 2)
-    });
-    summary += `## ${apod.title} (${apod.date})\n\n${apod.explanation}\n\n`;
-    if (apod.url && (!apod.media_type || apod.media_type === 'image')) {
-      summary += `Image URL: ${apod.url}\n\n`;
-      let base64 = null;
-      try {
-        const imageResponse = await axios.get(apod.url, { responseType: 'arraybuffer', timeout: 30000 });
-        base64 = Buffer.from(imageResponse.data).toString('base64');
-      } catch (err) {
-        console.error('Failed to fetch APOD image for base64:', apod.url, err);
+    if (args.date && (args.start_date || args.end_date)) {
+      ctx.addIssue({ code: 'custom', message: 'date cannot be combined with start_date/end_date' });
+    }
+    if (args.end_date && !args.start_date) {
+      ctx.addIssue({ code: 'custom', path: ['end_date'], message: 'end_date requires start_date' });
+    }
+    if (args.start_date && args.end_date) {
+      const span = daysBetween(args.start_date, args.end_date);
+      if (span < 0) ctx.addIssue({ code: 'custom', path: ['end_date'], message: 'end_date must not be before start_date' });
+      if (span > MAX_RANGE_DAYS) {
+        ctx.addIssue({ code: 'custom', path: ['end_date'], message: `date ranges are limited to ${MAX_RANGE_DAYS} days` });
       }
-      images.push({
-        url: apod.url,
-        title: apod.title,
-        resourceUri: apodId,
-        mimeType,
-        base64
-      });
     }
-  }
-  return {
-    summary,
-    images
-  };
+  });
+
+export type ApodArgs = z.output<typeof apodInputSchema>;
+
+interface ApodEntry {
+  date?: string;
+  title?: string;
+  explanation?: string;
+  media_type?: string;
+  url?: string;
+  hdurl?: string;
+  thumbnail_url?: string;
+  copyright?: string;
 }
 
-// Export the handler function directly as default
-export default nasaApodHandler; 
+export async function fetchApod(ctx: ToolContext, args: Omit<ApodArgs, 'max_images'>) {
+  const response = await nasaApiGet(ctx, SERVICE, '/planetary/apod', {
+    date: args.date,
+    start_date: args.start_date,
+    end_date: args.end_date,
+    count: args.count,
+    thumbs: args.thumbs
+  });
+  const data = response.json<ApodEntry | ApodEntry[]>();
+  return { data, source: sourceInfo(ctx, SERVICE, response.url) };
+}
+
+export const apodTool = defineTool({
+  name: 'nasa_apod',
+  title: 'NASA Astronomy Picture of the Day',
+  description:
+    "Fetch NASA's Astronomy Picture of the Day (APOD): a single date, a date range (up to 100 days), or random pictures. Requires NASA_API_KEY.",
+  inputSchema: apodInputSchema,
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    const { data, source } = await fetchApod(ctx, args);
+    const entries = Array.isArray(data) ? data : [data];
+    const summary = entries
+      .map((apod) => {
+        const lines = [`## ${apod.title ?? 'Untitled'} (${apod.date ?? 'unknown date'})`];
+        if (apod.copyright) lines.push(`Copyright: ${apod.copyright.trim()}`);
+        lines.push(`Media type: ${apod.media_type ?? 'unknown'}`);
+        if (apod.url) lines.push(`URL: ${apod.url}`);
+        if (apod.hdurl) lines.push(`HD URL: ${apod.hdurl}`);
+        if (apod.thumbnail_url) lines.push(`Thumbnail: ${apod.thumbnail_url}`);
+        if (apod.explanation) lines.push('', apod.explanation);
+        return lines.join('\n');
+      })
+      .join('\n\n');
+
+    const content: ToolContent[] = [boundedText(`${entries.length} APOD entr${entries.length === 1 ? 'y' : 'ies'}\n\n${summary}`, SERVICE, 'Request fewer days.')];
+    const notes: string[] = [];
+    let embedded = 0;
+    for (const apod of entries) {
+      if (embedded >= args.max_images) break;
+      if (apod.media_type !== 'image' || !apod.url) continue;
+      const result = await fetchImage(ctx, SERVICE, apod.url);
+      if ('image' in result) {
+        content.push(result.image);
+        embedded++;
+      } else {
+        notes.push(`${apod.date ?? apod.url}: image ${result.error}`);
+      }
+    }
+    if (notes.length) content.push(text(notes.join('\n')));
+
+    return {
+      content,
+      resource: { name: `APOD ${entries.map((e) => e.date).filter(Boolean).join(', ')}`, mimeType: 'application/json', text: json({ source, data }), source }
+    };
+  }
+});

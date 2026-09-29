@@ -1,67 +1,43 @@
 import { z } from 'zod';
-import axios from 'axios';
-import { transformParamsToHyphenated } from '../../utils/param-transformer';
+import { defineTool, READ_ONLY_REMOTE } from '../../tools/types';
+import { jsonResult } from '../common';
+import { hyphenate, jplGet, JPL_DATE } from './common';
 
-// Schema for validating JPL Fireball request parameters
-export const fireballParamsSchema = z.object({
-  date_min: z.string().optional(),
-  date_max: z.string().optional(),
-  energy_min: z.number().optional(),
-  energy_max: z.number().optional(),
-  impact_e_min: z.number().optional(),
-  impact_e_max: z.number().optional(),
-  vel_min: z.number().optional(),
-  vel_max: z.number().optional(),
-  alt_min: z.number().optional(),
-  alt_max: z.number().optional(),
-  req_loc: z.boolean().optional().default(false),
-  req_alt: z.boolean().optional().default(false),
-  req_vel: z.boolean().optional().default(false),
-  req_vel_comp: z.boolean().optional().default(false),
-  req_impact_e: z.boolean().optional().default(false),
-  req_energy: z.boolean().optional().default(false),
-  limit: z.number().optional().default(50)
+const SERVICE = 'JPL Fireball API';
+const jplDate = (description: string) => z.string().regex(JPL_DATE, 'must be YYYY-MM-DD or YYYY-MM-DDThh:mm:ss').describe(description);
+
+export const fireballInputSchema = z.strictObject({
+  limit: z.int().min(1).max(1000).default(50).describe('Maximum number of events (1-1000).'),
+  date_min: jplDate('Earliest event date (YYYY-MM-DD).').optional(),
+  date_max: jplDate('Latest event date (YYYY-MM-DD).').optional(),
+  energy_min: z.number().min(0).describe('Minimum total radiated energy (1e10 J).').optional(),
+  energy_max: z.number().min(0).describe('Maximum total radiated energy (1e10 J).').optional(),
+  impact_e_min: z.number().min(0).describe('Minimum estimated impact energy (kt).').optional(),
+  impact_e_max: z.number().min(0).describe('Maximum estimated impact energy (kt).').optional(),
+  vel_min: z.number().min(0).describe('Minimum velocity (km/s).').optional(),
+  vel_max: z.number().min(0).describe('Maximum velocity (km/s).').optional(),
+  req_loc: z.boolean().describe('Only events with a location.').optional(),
+  req_alt: z.boolean().describe('Only events with an altitude.').optional(),
+  req_vel: z.boolean().describe('Only events with a velocity.').optional(),
+  req_vel_comp: z.boolean().describe('Only events with velocity components.').optional()
 });
 
-// Define the request parameter type based on the schema
-export type FireballParams = z.infer<typeof fireballParamsSchema>;
-
-/**
- * Make a request to NASA JPL's Fireball API
- */
-export async function jplFireballHandler(params: FireballParams) {
-  try {
-    // Construct the Fireball API URL
-    const url = 'https://ssd-api.jpl.nasa.gov/fireball.api';
-    
-    // Transform parameter names from underscore to hyphenated format
-    const transformedParams = transformParamsToHyphenated(params);
-    
-    // Make the request to the Fireball API
-    const response = await axios.get(url, { params: transformedParams });
-    
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Retrieved ${response.data.count || 0} fireball events.`
-        },
-        {
-          type: "text",
-          text: JSON.stringify(response.data, null, 2)
-        }
-      ],
-      isError: false
-    };
-  } catch (error: any) {
-    console.error('Error in JPL Fireball handler:', error);
-    
-    return {
-      isError: true,
-      content: [{
-        type: "text",
-        text: `Error: ${error.message || 'An unexpected error occurred'}`
-      }]
-    };
+export const fireballTool = defineTool({
+  name: 'jpl_fireball',
+  title: 'JPL fireball events',
+  description: 'Fireball (bolide) events reported by US Government sensors, from the JPL Fireball API.',
+  inputSchema: fireballInputSchema,
+  retiredParameters: {
+    req_energy: 'The JPL Fireball API rejects req-energy; filter with energy_min instead.',
+    req_impact_e: 'The JPL Fireball API rejects req-impact-e; filter with impact_e_min instead.',
+    alt_min: 'The JPL Fireball API returns HTTP 500 for alt-min; this filter is not supported.',
+    alt_max: 'The JPL Fireball API returns HTTP 500 for alt-max; this filter is not supported.'
+  },
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    const { response, source } = await jplGet(ctx, SERVICE, '/fireball.api', hyphenate(args));
+    const data = response.json<{ count?: string | number }>();
+    const count = Number(data.count ?? 0);
+    return jsonResult(SERVICE, count === 0 ? 'No fireball events matched.' : `Retrieved ${count} fireball events.`, data, source, 'JPL fireball events');
   }
-} 
+});

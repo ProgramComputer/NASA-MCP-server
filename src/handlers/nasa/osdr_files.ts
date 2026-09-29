@@ -1,73 +1,35 @@
-import axios from 'axios';
-import { addResource } from '../../resources';
+import { z } from 'zod';
+import { defineTool, READ_ONLY_REMOTE } from '../../tools/types';
+import { httpRequest } from '../../util/http';
+import { jsonResult, sourceInfo } from '../common';
 
-// Define expected parameters 
-interface OsdrFilesParams {
-  accession_number: string; 
-}
+const SERVICE = 'NASA OSDR API';
+const FILES_URL = 'https://osdr.nasa.gov/osdr/data/osd/files';
 
-/**
- * Handler for NASA OSDR Data Files API
- * 
- * Retrieves metadata about data files for a specific OSD study dataset,
- * including download links.
- * 
- * @param args Request parameters conforming to OsdrFilesParams
- * @returns API response
- */
-export async function osdrFilesHandler(args: OsdrFilesParams) {
-  try {
-    // Validate required parameters
-    if (!args.accession_number) {
-      throw new Error('Missing required parameter: accession_number must be provided.');
-    }
-    
-    // Base URL for the OSDR API
-    const baseUrl = 'https://osdr.nasa.gov/osdr/data/osd/files';
-    const apiUrl = `${baseUrl}/${encodeURIComponent(args.accession_number)}`;
-    
-    // Make the API request using GET
-    const response = await axios.get(apiUrl, {
-      // OSDR API might require specific headers, e.g., Accept
-      headers: {
-        'Accept': 'application/json' 
-      }
+export const osdrFilesInputSchema = z.strictObject({
+  accession_number: z
+    .string()
+    .trim()
+    .regex(/^(OSD-)?\d+$/i, 'must be an OSD study number such as 87 or OSD-87')
+    .transform((value) => value.replace(/^OSD-/i, ''))
+    .describe('OSD study accession number, e.g. 87 or OSD-87.')
+});
+
+export const osdrFilesTool = defineTool({
+  name: 'nasa_osdr_files',
+  title: 'NASA OSDR study files',
+  description: 'List the data files (with download links) for a NASA Open Science Data Repository (OSDR) study.',
+  inputSchema: osdrFilesInputSchema,
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    const response = await httpRequest(ctx.fetch, {
+      service: SERVICE,
+      url: `${FILES_URL}/${encodeURIComponent(args.accession_number)}`,
+      headers: { Accept: 'application/json' }
     });
-    const data = response.data;
-    
-    // Create a resource URI 
-    const resourceUri = `nasa://osdr/files/${encodeURIComponent(args.accession_number)}`;
-    const resourceName = `OSDR Files for ${args.accession_number}`;
-
-    // Add response to resources
-    addResource(resourceUri, {
-      name: resourceName,
-      mimeType: "application/json", 
-      text: JSON.stringify(data, null, 2)
-    });
-    
-    // Format the response for MCP
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify(data, null, 2)
-      }]
-    };
-  } catch (error: any) {
-    let errorMessage = `Error accessing NASA OSDR Files API: ${error.message}`;
-    if (error.response) {
-      // Include more detail from the API response if available
-      errorMessage += `\nStatus: ${error.response.status}\nData: ${JSON.stringify(error.response.data)}`;
-    }
-    return {
-      content: [{
-        type: "text",
-        text: errorMessage
-      }],
-      isError: true
-    };
+    const data = response.json<{ hits?: number }>();
+    const source = sourceInfo(ctx, SERVICE, response.url);
+    const summary = data.hits === 0 ? `No OSDR study matched OSD-${args.accession_number}.` : `OSDR files for OSD-${args.accession_number}.`;
+    return jsonResult(SERVICE, summary, data, source, `OSDR files OSD-${args.accession_number}`);
   }
-}
-
-// Export default for dynamic imports in index.ts
-export default osdrFilesHandler; 
+});

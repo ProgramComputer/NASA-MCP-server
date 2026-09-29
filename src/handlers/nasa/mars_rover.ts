@@ -1,158 +1,81 @@
 import { z } from 'zod';
-import axios from 'axios';
-import { nasaApiRequest } from '../../utils/api-client';
-import { MarsRoverParams } from '../setup';
-import { addResource } from '../../resources';
+import { defineTool, READ_ONLY_REMOTE, type ToolContent } from '../../tools/types';
+import { UpstreamError } from '../../util/errors';
+import { boundedText, fetchImage, json, nasaApiGet, sourceInfo, text } from '../common';
+import { isoDate } from '../../util/validation';
 
-// Schema for validating Mars Rover request parameters
-const marsRoverParamsSchema = z.object({
-  rover: z.enum(['curiosity', 'opportunity', 'perseverance', 'spirit']),
-  sol: z.number().int().nonnegative().optional(),
-  earth_date: z.string().optional(),
-  camera: z.string().optional(),
-  page: z.number().int().positive().optional()
-});
+const SERVICE = 'NASA Mars Rover Photos API';
 
-/**
- * Handle requests for NASA's Mars Rover Photos API
- */
-export async function nasaMarsRoverHandler(params: MarsRoverParams) {
-  try {
-    const { rover, ...queryParams } = params;
-    
-    // Call the NASA Mars Rover Photos API
-    const result = await nasaApiRequest(`/mars-photos/api/v1/rovers/${rover}/photos`, queryParams);
-    
-    // Process the results and register resources
-    return processRoverResults(result, rover);
-  } catch (error: any) {
-    console.error('Error in Mars Rover handler:', error);
-    
-    if (error.name === 'ZodError') {
+export const marsRoverInputSchema = z
+  .strictObject({
+    rover: z.enum(['curiosity', 'opportunity', 'perseverance', 'spirit']).describe('Rover name.'),
+    sol: z.int().min(0).describe('Martian sol of the photos. Provide sol or earth_date.').optional(),
+    earth_date: isoDate('Earth date of the photos (YYYY-MM-DD). Provide sol or earth_date.').optional(),
+    camera: z.string().regex(/^[A-Za-z_]+$/, 'must be a camera abbreviation such as FHAZ').describe('Camera abbreviation, e.g. FHAZ, NAVCAM.').optional(),
+    page: z.int().min(1).describe('Result page (25 photos per page).').optional(),
+    max_images: z.int().min(0).max(5).default(3).describe('How many photos to embed (0-5).')
+  })
+  .superRefine((args, ctx) => {
+    if ((args.sol === undefined) === (args.earth_date === undefined)) {
+      ctx.addIssue({ code: 'custom', message: 'provide exactly one of sol or earth_date' });
+    }
+  });
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- loosely typed upstream JSON */
+export const marsRoverTool = defineTool({
+  name: 'nasa_mars_rover',
+  title: 'NASA Mars Rover Photos (retired upstream)',
+  description:
+    'DEPRECATED: the upstream Mars Rover Photos API (api.nasa.gov/mars-photos) has been returning HTTP 404 "No such app" since at least 2026-09-29. ' +
+    'Calls still query it and report the upstream status accurately; no photos are fabricated. Requires NASA_API_KEY.',
+  aliases: ['nasa/mars-rover', 'nasa-mars-rover'],
+  inputSchema: marsRoverInputSchema,
+  annotations: READ_ONLY_REMOTE,
+  async handler({ args, ctx }) {
+    let response;
+    try {
+      response = await nasaApiGet(ctx, SERVICE, `/mars-photos/api/v1/rovers/${args.rover}/photos`, {
+        sol: args.sol,
+        earth_date: args.earth_date,
+        camera: args.camera,
+        page: args.page
+      });
+    } catch (error) {
+      if (error instanceof UpstreamError && error.status === 404) {
+        throw new UpstreamError(
+          SERVICE,
+          'unavailable',
+          `${error.message}. The Mars Rover Photos service appears to be retired upstream; no photos can be returned.`,
+          404
+        );
+      }
+      throw error;
+    }
+    const data = response.json<any>();
+    const source = sourceInfo(ctx, SERVICE, response.url);
+    const photos: any[] = Array.isArray(data?.photos) ? data.photos : [];
+    if (photos.length === 0) {
       return {
-        content: [{
-          type: "text",
-          text: `Invalid request parameters: ${JSON.stringify(error.errors)}`
-        }],
-        isError: true
+        content: [text(`No photos found for ${args.rover} with the requested filters.`)],
+        resource: { name: `Mars rover ${args.rover} photos`, mimeType: 'application/json', text: json({ source, data }), source }
       };
     }
-    
-    return {
-      content: [{
-        type: "text",
-        text: `Error fetching Mars Rover photos: ${error.message || 'Unknown error'}`
-      }],
-      isError: true
-    };
-  }
-}
-
-/**
- * Process the Mars Rover API results, register resources, and format the response
- */
-async function processRoverResults(data: any, rover: string) {
-  const photos = data.photos || [];
-  const resources = [];
-  // Collect base64 image data for direct display
-  const images: Array<{ title: string; url: string; data: string; mimeType: string }> = [];
-  
-  if (photos.length === 0) {
-    return {
-      content: [{
-        type: "text",
-        text: `No photos found for rover ${rover} with the specified parameters.`
-      }],
-      isError: false
-    };
-  }
-  
-  // Register each photo as a resource
-  for (const photo of photos) {
-    const photoId = photo.id.toString();
-    const resourceUri = `nasa://mars_rover/photo?rover=${rover}&id=${photoId}`;
-    
-    try {
-      // Fetch the actual image data
-      const imageResponse = await axios({
-        url: photo.img_src,
-        responseType: 'arraybuffer',
-        timeout: 30000
-      });
-      
-      // Convert image data to Base64
-      const imageBase64 = Buffer.from(imageResponse.data).toString('base64');
-      
-      // Register the resource with binary data in the blob field
-      addResource(resourceUri, {
-        name: `Mars Rover Photo ${photoId}`,
-        mimeType: "image/jpeg",
-        // Store metadata as text for reference
-        text: JSON.stringify({
-          photo_id: photoId,
-          rover: rover,
-          camera: photo.camera?.name || 'Unknown',
-          earth_date: photo.earth_date,
-          sol: photo.sol,
-          img_src: photo.img_src
-        }),
-        // Store the actual image data as a blob
-        blob: Buffer.from(imageResponse.data)
-      });
-      // Keep base64 data for direct response
-      images.push({ title: `Mars Rover Photo ${photoId}`, url: photo.img_src, data: imageBase64, mimeType: "image/jpeg" });
-    } catch (error) {
-      console.error(`Error fetching image for rover photo ${photoId}:`, error);
-      
-      // If fetching fails, register with just the metadata and URL
-      addResource(resourceUri, {
-        name: `Mars Rover Photo ${photoId}`,
-        mimeType: "image/jpeg",
-        text: JSON.stringify({
-          photo_id: photoId,
-          rover: rover,
-          camera: photo.camera?.name || 'Unknown',
-          img_src: photo.img_src,
-          earth_date: photo.earth_date,
-          sol: photo.sol,
-          fetch_error: (error as Error).message
-        })
-      });
+    const listing = photos.map((photo) => ({
+      id: photo.id,
+      sol: photo.sol,
+      earth_date: photo.earth_date,
+      camera: photo.camera?.name ?? null,
+      img_src: photo.img_src
+    }));
+    const content: ToolContent[] = [text(`Found ${photos.length} photos from ${args.rover}.`), boundedText(json(listing), SERVICE, 'Filter by camera or page.')];
+    for (const photo of listing.slice(0, args.max_images)) {
+      const result = await fetchImage(ctx, SERVICE, photo.img_src);
+      content.push('image' in result ? result.image : text(`Photo ${photo.id}: image ${result.error}`));
     }
-    
-    resources.push({
-      title: `Mars Rover Photo ${photoId}`,
-      description: `Photo taken by ${rover} rover on Mars`,
-      resource_uri: resourceUri
-    });
+    return {
+      content,
+      resource: { name: `Mars rover ${args.rover} photos`, mimeType: 'application/json', text: json({ source, data }), source }
+    };
   }
-  
-  // Format the response for MCP
-  return {
-    content: [
-      {
-        type: "text",
-        text: `Found ${photos.length} photos from Mars rover ${rover}.`
-      },
-      {
-        type: "text",
-        text: JSON.stringify(resources, null, 2)
-      },
-      // Include direct image links and binary data
-      ...images.map(img => ({ type: "text", text: `![${img.title}](${img.url})` })),
-      ...images.map(img => ({ type: "image", data: img.data, mimeType: img.mimeType })),
-    ],
-    isError: false
-  };
-}
-
-// Export with all possible names that handleToolCall might be looking for
-// Primary export should match file name convention
-export const mars_roverHandler = nasaMarsRoverHandler;
-export const marsRoverHandler = nasaMarsRoverHandler;
-
-// Keep these secondary exports for compatibility
-export const nasaMars_RoverHandler = nasaMarsRoverHandler;
-
-// Default export
-export default nasaMarsRoverHandler; 
+});
+/* eslint-enable @typescript-eslint/no-explicit-any */

@@ -1,31 +1,43 @@
 {
   "name": "@programcomputer/nasa-mcp-server",
-  "version": "1.0.14",
-  "description": "Model Context Protocol (MCP) server for NASA APIs",
+  "version": "1.1.0",
+  "description": "Model Context Protocol (MCP) server for NASA and JPL public APIs",
   "main": "dist/index.js",
-  "files": [
-    "dist"
-  ],
+  "types": "dist/index.d.ts",
   "bin": {
     "nasa-mcp-server": "dist/index.js"
   },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "build": "npm install && tsc && shx chmod +x dist/*.js",
-    "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts",
+    "clean": "node scripts/clean.mjs",
+    "build": "tsc -p tsconfig.build.json",
+    "build:test": "tsc -p tsconfig.test.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test": "jest",
-    "direct-test": "ts-node src/tests/direct-api-test.ts",
-    "custom-test": "ts-node src/tests/custom-client/nasa-mcp-test.ts",
-    "simple-test": "ts-node src/tests/custom-client/simple-test.ts"
+    "start": "node dist/index.js",
+    "test": "npm run build && npm run build:test && node --test --test-concurrency=1 --test-timeout=120000 \".test-build/test/**/*.test.js\"",
+    "test:live": "npm run build && npm run build:test && node --test --test-concurrency=1 \".test-build/test/live/*.live.js\"",
+    "docs:tools": "npm run build && node scripts/generate-tool-docs.mjs",
+    "docs:check": "npm run build && node scripts/generate-tool-docs.mjs --check",
+    "smoke:package": "node scripts/package-smoke.mjs",
+    "prepack": "node scripts/check-dist.mjs"
   },
   "keywords": [
     "nasa",
-    "api",
+    "jpl",
+    "earthdata",
+    "cmr",
     "mcp",
-    "typescript"
+    "model-context-protocol"
   ],
-  "author": "",
+  "author": "ProgramComputer",
   "license": "ISC",
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
@@ -35,29 +47,21 @@
     "type": "git",
     "url": "git+https://github.com/ProgramComputer/NASA-MCP-server.git"
   },
+  "homepage": "https://github.com/ProgramComputer/NASA-MCP-server#readme",
+  "bugs": {
+    "url": "https://github.com/ProgramComputer/NASA-MCP-server/issues"
+  },
   "dependencies": {
-    "@anthropic-ai/sdk": "",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "axios": "",
-    "cors": "",
-    "dotenv": "^17.2.0",
-    "express": "",
-    "zod": ""
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "dotenv": "^17.4.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/cors": "",
-    "@types/express": "",
-    "@types/jest": "",
-    "@types/node": "",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
-    "cross-env": "^7.0.3",
-    "eslint": "^8.57.1",
-    "jest": "",
-    "shx": "^0.4.0",
-    "ts-jest": "",
-    "ts-node": "",
-    "typed-rpc": "^6.1.1",
-    "typescript": ""
+    "@eslint/js": "^10.0.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.4",
+    "eslint": "^10.11.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.71.0"
   }
 }
