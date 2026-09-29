@@ -9,7 +9,7 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { gunzipSync } from 'node:zlib';
-import { mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -102,6 +102,7 @@ try {
 
   if (registrySpec) {
     const downloads = join(work, 'download');
+    mkdirSync(downloads, { recursive: true }); // npm pack --pack-destination does not create it
     run(npmCmd, ['pack', registrySpec, '--json', '--pack-destination', downloads, '--cache', cache, '--prefer-online'], { cwd: work, env: { ...process.env, npm_config_cache: cache } });
     const found = existsSync(downloads) ? readdirSync(downloads).filter((f) => f.endsWith('.tgz')) : [];
     if (found.length !== 1) throw new Error(`expected one downloaded tarball, found ${found.length}`);
