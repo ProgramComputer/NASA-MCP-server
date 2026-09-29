@@ -1,0 +1,110 @@
+name: Verify release
+
+# Run after an owner has approved a staged version. Checks that the public
+# registry serves exactly the tarball the Release workflow tested, installs it
+# fresh on Linux and Windows, reruns the MCP transport tests against the
+# installed bin, and checks provenance and registry signatures. It has no
+# publishing permissions.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag that was staged (for example v1.1.0)
+        required: true
+        type: string
+      integrity:
+        description: Tested tarball integrity from the Release run summary (sha512-...)
+        required: true
+        type: string
+      dist_tag:
+        description: dist-tag the version was staged under
+        required: true
+        default: next
+        type: choice
+        options: [next]
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE: '@programcomputer/nasa-mcp-server'
+
+jobs:
+  verify:
+    name: verify published package (${{ matrix.os }})
+    if: github.repository == 'ProgramComputer/NASA-MCP-server'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Validate inputs
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+          INTEGRITY: ${{ inputs.integrity }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::tag must look like v1.2.3"; exit 1; }
+          [[ "$INTEGRITY" =~ ^sha512-[A-Za-z0-9+/]{86}==$ ]] || { echo "::error::integrity must be a sha512-... value"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.x'
+
+      - run: npm ci
+      - run: npm run build && npm run build:test
+
+      - name: Registry serves the tested artifact under the expected dist-tag
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+          INTEGRITY: ${{ inputs.integrity }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          [[ "$(node -p "require('./package.json').version")" == "$VERSION" ]] || { echo "::error::tag and package.json disagree"; exit 1; }
+          published=""
+          for i in $(seq 1 30); do
+            published=$(npm view "$PACKAGE@$VERSION" dist.integrity --prefer-online 2>/dev/null || true)
+            [[ -n "$published" ]] && break
+            sleep 10
+          done
+          [[ "$published" == "$INTEGRITY" ]] || { echo "::error::registry integrity '$published' != tested '$INTEGRITY'"; exit 1; }
+          [[ "$(npm view "$PACKAGE" "dist-tags.$DIST_TAG" --prefer-online)" == "$VERSION" ]] || { echo "::error::dist-tag $DIST_TAG does not point at $VERSION"; exit 1; }
+          echo "latest currently: $(npm view "$PACKAGE" dist-tags.latest --prefer-online)"
+
+      - name: Fresh install from the registry + MCP tests against the installed bin
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+          INTEGRITY: ${{ inputs.integrity }}
+          REPORT: registry-report-${{ matrix.os }}.json
+        run: node scripts/package-smoke.mjs --from-registry "$PACKAGE@${TAG#v}" --expect-integrity "$INTEGRITY" --report "$REPORT"
+
+      - name: Provenance and registry signatures
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          npm view "$PACKAGE@$VERSION" dist.attestations --json | tee attestations.json
+          node -e "const a=require('./attestations.json');if(!a||!a.provenance)process.exit(1)" || { echo "::error::no provenance attestation"; exit 1; }
+          dir=$(mktemp -d) && cd "$dir" && npm init -y >/dev/null && npm install "$PACKAGE@$VERSION" --omit=dev --no-fund >/dev/null && npm audit signatures
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: registry-verification-${{ matrix.os }}
+          path: registry-report-*.json
+          if-no-files-found: ignore
