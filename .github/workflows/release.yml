@@ -1,13 +1,13 @@
 name: Release
 
-# The only workflow that publishes to npm. Run it manually from main with an
+# The only workflow that can publish to npm. Run it manually from main with an
 # existing, immutable release tag. It rebuilds and tests that tag, packs one
-# tarball, runs the package gate on it, publishes exactly that tarball under a
-# non-latest dist-tag via npm trusted publishing (OIDC, with provenance), and
-# then verifies the published artifact from the registry.
+# tarball, runs the package gate on it, and STAGES exactly that tarball via npm
+# trusted publishing (OIDC, with provenance) under a non-latest dist-tag.
 #
-# Promotion to "latest" is a separate owner step: npm OIDC does not authorize
-# `npm dist-tag`. See RELEASING.md.
+# Staged versions are not public until a package owner approves them with 2FA
+# (`npm stage approve`). After approval, run the "Verify release" workflow.
+# Promotion to "latest" is a separate owner step; see RELEASING.md.
 
 on:
   workflow_dispatch:
@@ -119,8 +119,8 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-  publish:
-    name: publish to npm (${{ inputs.dist_tag }})
+  stage:
+    name: stage on npm (${{ inputs.dist_tag }})
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -145,81 +145,42 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
-          node -e "const [a,b,c]=process.versions.node.split('.').map(Number);if(a<22||(a===22&&b<14))process.exit(1)"
+          node -e "const [a,b]=process.versions.node.split('.').map(Number);if(a<22||(a===22&&b<14))process.exit(1)"
           npm_version=$(npm --version)
           node -e "const [a,b,c]='$npm_version'.split('.').map(Number);if(a<11||(a===11&&(b<5||(b===5&&c<1))))process.exit(1)" || { echo "::error::npm >= 11.5.1 is required for trusted publishing (have $npm_version)"; exit 1; }
+          npm stage --help >/dev/null 2>&1 || { echo "::error::npm $npm_version has no 'npm stage' command"; exit 1; }
           actual="sha512-$(openssl dgst -sha512 -binary "$TARBALL" | base64 -w0)"
-          [[ "$actual" == "$INTEGRITY" ]] || { echo "::error::tarball integrity changed between build and publish"; exit 1; }
+          [[ "$actual" == "$INTEGRITY" ]] || { echo "::error::tarball integrity changed between build and stage"; exit 1; }
           if npm view "$PACKAGE@$VERSION" version >/dev/null 2>&1; then
             echo "::error::$PACKAGE@$VERSION already exists; not republishing"; exit 1
           fi
 
-      - name: Publish the tested tarball (trusted publishing, provenance)
+      - name: Stage the tested tarball (trusted publishing, provenance)
         env:
           TARBALL: ${{ needs.build.outputs.tarball }}
           DIST_TAG: ${{ inputs.dist_tag }}
-        run: npm publish "./$TARBALL" --tag "$DIST_TAG" --access public --provenance
+        run: npm stage publish "./$TARBALL" --tag "$DIST_TAG" --access public --provenance 2>&1 | tee stage-output.txt
 
-  verify:
-    name: verify published package (${{ matrix.os }})
-    needs: [build, publish]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.build.outputs.sha }}
-          persist-credentials: false
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24.x'
-
-      - run: npm ci
-      - run: npm run build && npm run build:test
-
-      - name: Wait for the registry and check dist-tag and integrity
-        shell: bash
+      - name: Next steps
         env:
           VERSION: ${{ needs.build.outputs.version }}
           INTEGRITY: ${{ needs.build.outputs.integrity }}
+          SHA: ${{ needs.build.outputs.sha }}
+          TAG: ${{ inputs.tag }}
           DIST_TAG: ${{ inputs.dist_tag }}
         run: |
-          set -euo pipefail
-          for i in $(seq 1 30); do
-            published=$(npm view "$PACKAGE@$VERSION" dist.integrity --prefer-online 2>/dev/null || true)
-            [[ -n "$published" ]] && break
-            sleep 10
-          done
-          [[ "$published" == "$INTEGRITY" ]] || { echo "::error::registry integrity '$published' != tested '$INTEGRITY'"; exit 1; }
-          [[ "$(npm view "$PACKAGE" "dist-tags.$DIST_TAG" --prefer-online)" == "$VERSION" ]] || { echo "::error::dist-tag $DIST_TAG does not point at $VERSION"; exit 1; }
-          echo "latest is still: $(npm view "$PACKAGE" dist-tags.latest --prefer-online)"
-
-      - name: Fresh install from the registry + MCP tests against the installed bin
-        shell: bash
-        env:
-          VERSION: ${{ needs.build.outputs.version }}
-          INTEGRITY: ${{ needs.build.outputs.integrity }}
-        run: node scripts/package-smoke.mjs --from-registry "$PACKAGE@$VERSION" --expect-integrity "$INTEGRITY" --report registry-report-${{ matrix.os }}.json
-
-      - name: Provenance and registry signatures
-        if: runner.os == 'Linux'
-        shell: bash
-        env:
-          VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          set -euo pipefail
-          npm view "$PACKAGE@$VERSION" dist.attestations --json | tee attestations.json
-          node -e "const a=require('./attestations.json');if(!a||!a.provenance)process.exit(1)" || { echo "::error::no provenance attestation"; exit 1; }
-          dir=$(mktemp -d) && cd "$dir" && npm init -y >/dev/null && npm install "$PACKAGE@$VERSION" --omit=dev --no-fund >/dev/null && npm audit signatures
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: registry-verification-${{ matrix.os }}
-          path: registry-report-*.json
-          if-no-files-found: ignore
+          {
+            echo "## $PACKAGE@$VERSION staged (not public yet)"
+            echo
+            echo "- Release tag: \`$TAG\` (commit \`$SHA\`)"
+            echo "- Tested tarball integrity: \`$INTEGRITY\`"
+            echo "- dist-tag applied on approval: \`$DIST_TAG\`"
+            echo
+            echo '```'
+            cat stage-output.txt
+            echo '```'
+            echo
+            echo "1. Owner: \`npx -y npm@11 stage list $PACKAGE\`, then \`npx -y npm@11 stage approve <stage-id>\` (2FA)."
+            echo "2. Run **Verify release** with tag \`$TAG\` and integrity \`$INTEGRITY\`."
+            echo "3. Owner, after verification: \`npm dist-tag add $PACKAGE@$VERSION latest\`."
+          } >> "$GITHUB_STEP_SUMMARY"
