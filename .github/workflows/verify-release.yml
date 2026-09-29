@@ -50,9 +50,11 @@ jobs:
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::tag must look like v1.2.3"; exit 1; }
           [[ "$INTEGRITY" =~ ^sha512-[A-Za-z0-9+/]{86}==$ ]] || { echo "::error::integrity must be a sha512-... value"; exit 1; }
 
+      # The verification harness (scripts and tests) comes from the branch this
+      # workflow runs on, so harness fixes apply to already-tagged releases. The
+      # package under test comes from the registry, pinned by the tested integrity.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: refs/tags/${{ inputs.tag }}
           persist-credentials: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -71,7 +73,6 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${TAG#v}"
-          [[ "$(node -p "require('./package.json').version")" == "$VERSION" ]] || { echo "::error::tag and package.json disagree"; exit 1; }
           published=""
           for i in $(seq 1 30); do
             published=$(npm view "$PACKAGE@$VERSION" dist.integrity --prefer-online 2>/dev/null || true)
