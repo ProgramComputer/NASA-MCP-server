@@ -82,7 +82,7 @@ The server can be configured with the following environment variables:
 
 ## Transport Modes
 
-By default, the server runs over stdio for local MCP clients such as Cursor and Claude Desktop.
+By default, the server runs over stdio for local MCP clients such as Cursor.
 
 To run the optional Streamable HTTP transport:
 
