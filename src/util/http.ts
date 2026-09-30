@@ -53,7 +53,7 @@ export function looksLikeHtml(text: string): boolean {
 
 /**
  * Extracts a short, sanitized error message from an upstream error body.
- * Understands the JSON error shapes used by CMR, api.nasa.gov and JPL.
+ * Understands the JSON error shapes used by CMR, api.nasa.gov, JPL and the TLE API.
  */
 export function summarizeErrorBody(text: string, contentType: string): string {
   const trimmed = text.trim();
@@ -65,6 +65,7 @@ export function summarizeErrorBody(text: string, contentType: string): string {
         Array.isArray(parsed.errors) ? parsed.errors.join('; ') : undefined,
         Array.isArray(parsed.messages) ? parsed.messages.join('; ') : undefined,
         (parsed.error as { message?: unknown } | undefined)?.message,
+        (parsed.response as { message?: unknown } | undefined)?.message,
         parsed.error_message,
         parsed.msg,
         parsed.message,

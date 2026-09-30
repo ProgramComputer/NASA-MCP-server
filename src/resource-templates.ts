@@ -41,14 +41,14 @@ export const RESOURCE_TEMPLATES: ResourceTemplateDefinition[] = [
   {
     name: 'nasa-apod',
     title: 'Astronomy Picture of the Day metadata',
-    description: 'APOD metadata (title, explanation, image URLs) for a date, fetched from api.nasa.gov on read. Requires NASA_API_KEY.',
+    description: 'APOD metadata (title, explanation, image or video URL) for a date, or the latest picture when date is empty, fetched from science.nasa.gov on read. No API key needed.',
     uriTemplate: 'nasa://apod/image?date={date}',
     mimeType: 'application/json',
     base: 'nasa://apod/image',
     async read(params, ctx) {
       const args = parse(apodInputSchema, onlyParams(params, ['date']));
       const { data, source } = await fetchApod(ctx, args);
-      return json({ source, data });
+      return json({ source, data: data[0] ?? null });
     }
   },
   {

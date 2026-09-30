@@ -6,17 +6,15 @@ Every tool is read-only and queries public NASA/JPL services. Unknown parameters
 
 ## `nasa_apod` — NASA Astronomy Picture of the Day
 
-Fetch NASA's Astronomy Picture of the Day (APOD): a single date, a date range (up to 100 days), or random pictures. Requires NASA_API_KEY.
+NASA's Astronomy Picture of the Day (APOD) from the NASA Science APOD API (science.nasa.gov): the latest picture, one date (1995-06-16 onward), or a date range of up to 100 days. Returns the title, credit, explanation as plain text, image or video URL and page link, and embeds up to max_images pictures. No API key needed.
 
 Aliases: `nasa/apod`
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `date` | string |  |  | Date of the picture (YYYY-MM-DD). Defaults to today. Cannot be combined with count or start_date/end_date. |
+| `date` | string |  |  | Date of the picture (YYYY-MM-DD, 1995-06-16 or later). Defaults to the latest published picture. Cannot be combined with start_date/end_date. |
 | `start_date` | string |  |  | Start of a date range (YYYY-MM-DD). |
-| `end_date` | string |  |  | End of a date range (YYYY-MM-DD); requires start_date. Defaults to today when start_date is given. |
-| `count` | integer (1–100) |  |  | Return this many random pictures (1-100). Cannot be combined with dates. |
-| `thumbs` | boolean |  |  | Include thumbnail URLs for video entries. |
+| `end_date` | string |  |  | End of a date range (YYYY-MM-DD); requires start_date. Defaults to today (UTC) when start_date is given. |
 | `max_images` | integer (0–5) |  | `1` | How many pictures to embed as image content (0-5). Remaining entries are listed by URL. |
 
 ## `nasa_neo` — NASA Near Earth Object Web Service
@@ -159,7 +157,7 @@ Aliases: `nasa/exoplanet`
 
 ## `nasa_donki` — NASA DONKI space weather
 
-Space Weather Database Of Notifications, Knowledge, Information (DONKI) events by type and date range. Requires NASA_API_KEY.
+Space Weather Database Of Notifications, Knowledge, Information (DONKI) events by type and date range, from the NASA CCMC DONKI API (ccmc.gsfc.nasa.gov). No API key needed.
 
 Aliases: `nasa/donki`
 
@@ -224,6 +222,108 @@ Aliases: `nasa/osdr_files`, `nasa/osdr-files`
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `accession_number` | string | yes |  | OSD study accession number, e.g. 87 or OSD-87. |
+
+## `nasa_insight_weather` — NASA InSight Mars weather (historical)
+
+HISTORICAL DATA ONLY: per-sol Mars surface weather (air temperature, pressure, wind) from NASA's InSight lander at Elysium Planitia. The feed is frozen at the last seven sols it reported (sols 675-681, October 2020) and is no longer updated. Requires NASA_API_KEY.
+
+Aliases: `nasa/insight_weather`, `nasa/insight-weather`
+
+No parameters.
+
+## `nasa_tle` — Satellite two-line element sets
+
+Two-line element sets (TLE) for Earth-orbiting satellites from the TLE API in the api.nasa.gov catalog (tle.ivanstanojevic.me; CelesTrak data refreshed daily): one satellite by NORAD catalog number, or a paged name search. No API key needed.
+
+Aliases: `nasa/tle`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `satellite_id` | integer (1–999999999) |  |  | NORAD catalog number, e.g. 25544 for the ISS. Cannot be combined with search options. |
+| `search` | string |  |  | Search satellite names, e.g. "ISS" or "HUBBLE". Omit to browse all records. |
+| `sort` | `"popularity"` \\| `"name"` \\| `"id"` \\| `"inclination"` \\| `"eccentricity"` \\| `"period"` |  |  | Sort field for searches (upstream default popularity). |
+| `sort_dir` | `"asc"` \\| `"desc"` |  |  | Sort direction (upstream default desc). |
+| `page` | integer (1–100000) |  |  | Result page (1-based). |
+| `page_size` | integer (1–100) |  |  | Records per page (1-100, upstream default 20). |
+
+## `nasa_ssc_observatories` — Satellite Situation Center spacecraft list
+
+Spacecraft and other observatories whose locations the NASA Satellite Situation Center (SSCWeb) can compute, with their data time ranges and resolution. Use the IDs with nasa_ssc_locations. No API key needed.
+
+Aliases: `nasa/ssc_observatories`, `nasa/ssc-observatories`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `search` | string |  |  | Case-insensitive text to match in the observatory ID or name, e.g. "mms" or "GOES". |
+| `active_on` | string |  |  | Only observatories with location data on this date (YYYY-MM-DD). |
+
+## `nasa_ssc_locations` — Satellite Situation Center spacecraft locations
+
+Positions of spacecraft (and the Moon and Sun) over a time range from the NASA Satellite Situation Center (SSCWeb), in geophysical coordinate systems (GEO, GM, GSE, GSM, SM, GEI). Returns a CSV table per observatory: X/Y/Z in km, latitude/longitude in degrees, local time in hours and radial distance in km. The resolution factor is raised automatically to keep the output bounded. No API key needed.
+
+Aliases: `nasa/ssc_locations`, `nasa/ssc-locations`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `observatories` | string[] | yes |  | 1-5 SSC observatory IDs, e.g. ["iss"] or ["mms1", "moon"] (see nasa_ssc_observatories). A comma-separated string also works. |
+| `start_time` | string | yes |  | Start time (UTC), e.g. 2026-09-29T06:00:00Z; a bare date such as 2026-09-29 means 00:00 UTC. |
+| `end_time` | string | yes |  | End time (UTC); at most 366 days after start_time. |
+| `coordinate_systems` | `"geo"` \\| `"gm"` \\| `"gse"` \\| `"gsm"` \\| `"sm"` \\| `"geitod"` \\| `"geij2000"`[] |  |  | Coordinate systems (default geo): geo, gm, gse, gsm, sm, geitod, geij2000. A comma-separated string also works. |
+| `resolution_factor` | integer (1–100000) |  |  | Return every Nth point of each observatory's base resolution (60-720 s). Chosen automatically when omitted to keep the output bounded. |
+
+## `nasa_techport` — NASA TechPort technology projects
+
+NASA's technology project inventory (TechPort): search projects by keyword, or fetch one project with its status, dates, program, technology readiness levels (TRL), lead organization, description and benefits. No API key needed.
+
+Aliases: `nasa/techport`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `query` | string |  |  | Search TechPort technology projects, e.g. "solar sail". Results are ordered by relevance. |
+| `project_id` | integer (>0–9007199254740991) |  |  | Fetch one project by its TechPort ID, e.g. 94703. |
+| `limit` | integer (1–50) |  |  | Search mode: how many projects to return (1-50, default 10). |
+
+## `nasa_techtransfer` — NASA Technology Transfer search
+
+Search NASA's Technology Transfer portfolio (technology.nasa.gov): patents available for licensing, issued patents, the NASA Software Catalog, or Spinoff stories about commercial products that use NASA technology. No API key needed.
+
+Aliases: `nasa/techtransfer`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `query` | string | yes |  | Keywords to search for, e.g. "engine" or "solar panel". |
+| `collection` | `"patent"` \\| `"patent_issued"` \\| `"software"` \\| `"spinoff"` |  | `"patent"` | What to search: patent (licensable patents), patent_issued, software (NASA Software Catalog) or spinoff (Spinoff stories). |
+| `limit` | integer (1–50) |  | `10` | How many results to return (1-50). The service returns every match; the rest are counted but not shown. |
+
+## `nasa_trek_layers` — NASA Trek map layers (Mars, Moon, Vesta)
+
+Search the map layer catalogs of NASA Mars Trek, Moon Trek and Vesta Trek (trek.nasa.gov): mosaics, colour hillshades and other imagery served as OGC WMTS tiles. Returns layer IDs for nasa_trek_tile, with mission, instrument and WMTS endpoint. No API key needed.
+
+Aliases: `nasa/trek_layers`, `nasa/trek-layers`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `body` | `"mars"` \\| `"moon"` \\| `"vesta"` | yes |  | Body: mars, moon or vesta. |
+| `projection` | `"equirectangular"` \\| `"north_pole"` \\| `"south_pole"` |  | `"equirectangular"` | Map projection: equirectangular (global), north_pole or south_pole (polar stereographic). |
+| `search` | string |  |  | Keywords to match, e.g. "olympus", "LRO WAC" or "HiRISE". |
+| `limit` | integer (1–50) |  | `20` | How many layers to return (1-50). |
+
+## `nasa_trek_tile` — NASA Trek map tile (Mars, Moon, Vesta)
+
+One WMTS map tile image from NASA Mars Trek, Moon Trek or Vesta Trek for a layer from nasa_trek_layers, addressed by zoom/row/col or (equirectangular layers) by latitude/longitude. Reads the layer's WMTS capabilities to validate the tile and pick the format. No API key needed.
+
+Aliases: `nasa/trek_tile`, `nasa/trek-tile`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `body` | `"mars"` \\| `"moon"` \\| `"vesta"` | yes |  | Body: mars, moon or vesta. |
+| `layer` | string | yes |  | Layer ID from nasa_trek_layers, e.g. Mars_MGS_MOLA_ClrShade_merge_global_463m or LRO_WAC_Mosaic_Global_303ppd_v02. |
+| `projection` | `"equirectangular"` \\| `"north_pole"` \\| `"south_pole"` |  | `"equirectangular"` | Map projection: equirectangular (global), north_pole or south_pole (polar stereographic). |
+| `zoom` | integer (0–30) |  | `0` | Zoom level (WMTS TileMatrix). 0 is the whole layer; each level doubles the resolution. |
+| `row` | integer (0–2147483648) |  |  | Tile row (0 at the top). Provide row and col, or latitude and longitude. |
+| `col` | integer (0–2147483648) |  |  | Tile column (0 at the left). |
+| `latitude` | number (-90–90) |  |  | Equirectangular only: pick the tile containing this latitude (degrees). |
+| `longitude` | number (-180–360) |  |  | Equirectangular only: pick the tile containing this longitude (degrees east, -180 to 360). |
 
 ## `jpl_sbdb` — JPL Small-Body Database lookup
 
@@ -410,4 +510,26 @@ Aliases: `jpl/scout`
 | `orbits` | boolean |  |  | Object mode: include sampled orbits. |
 | `n_orbits` | integer (1–1000) |  |  | Object mode: number of sampled orbits (1-1000). |
 | `limit` | integer (1–1000) |  |  | List mode: return at most this many objects. Applied by this server; Scout has no limit parameter. |
+
+## `jpl_mission_design` — JPL small-body mission design
+
+Ballistic mission options to asteroids and comets from the JPL Small-Body Mission Design API. Object mode (des, spk or sstr) returns the pre-computed mission options stored for one object (launch and arrival dates, V-infinity, time of flight). List mode returns the most accessible small bodies for the given launch years, ranked by crit, with optional SBDB filters. Porkchop-plot maps (mode M) and mission-extension searches (mode T) are not exposed.
+
+Aliases: `jpl/mission_design`, `jpl/mission-design`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `des` | string |  |  | Object mode: designation, e.g. 2012 TC4 or 433. |
+| `spk` | integer (>0–9007199254740991) |  |  | Object mode: SPK-ID, e.g. 2000433. |
+| `sstr` | string |  |  | Object mode: search string (name, designation or SPK-ID), e.g. apophis. |
+| `class` | boolean |  |  | Object mode: orbit class as a name instead of the three-letter code. |
+| `crit` | integer (1–6) |  |  | List mode: optimality criterion. 1 min departure V-infinity (default), 2 min arrival V-infinity, 3 min total delta-V, 4-6 the same with minimum time of flight first. |
+| `year` | integer (1900–2200)[] |  |  | List mode: launch year(s), from the current year up to 20 years ahead. JPL defaults to the next five years. |
+| `lim` | integer (1–200) |  | `20` | List mode: how many accessible objects to return (1-200). |
+| `sb_kind` | `"a"` \\| `"c"` |  |  | List mode: asteroids (a) or comets (c) only. |
+| `sb_group` | `"neo"` \\| `"pha"` |  |  | List mode: NEOs or PHAs only. |
+| `sb_class` | string |  |  | List mode: orbit class code(s), e.g. APO or MBA,OMB (case-sensitive). |
+| `sb_ns` | `"n"` \\| `"u"` |  |  | List mode: numbered (n) or unnumbered (u) objects only. |
+| `sb_sat` | boolean |  |  | List mode: only objects with at least one known satellite. |
+| `sb_xfrag` | boolean |  |  | List mode: exclude comet fragments. |
 

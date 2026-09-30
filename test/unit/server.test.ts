@@ -19,7 +19,7 @@ function cmrAndApod(): FakeFetch {
         return jsonResponse(feed([jsonCollection(1, { title: `result for ${keyword}` })]), { headers: { 'cmr-hits': '1' } });
       }
     ],
-    ['api.nasa.gov/planetary/apod', (request) => jsonResponse({ date: request.url.searchParams.get('date'), title: 'Real APOD', media_type: 'other' })],
+    ['science.nasa.gov/wp-json/wp/v2/apod-basic/', (request) => jsonResponse({ date: `20${request.url.pathname.slice(-6, -4)}-${request.url.pathname.slice(-4, -2)}-${request.url.pathname.slice(-2)}`, title: 'Real APOD', media_type: 'other', basic_html: '<html></html>' })],
     ['ssd-api.jpl.nasa.gov/sbdb.api', () => jsonResponse({ object: { fullname: '1 Ceres (A801 AA)' } })]
   ]);
 }
@@ -72,7 +72,7 @@ describe('MCP server', () => {
     const invalid = await client.request({ method: 'nasa/cmr', params: { limit: 'ten' } } as never, CallToolResultSchema);
     assert.equal(invalid.isError, true);
     const manifest = await client.request({ method: 'tools/manifest', params: {} } as never, z.object({ apis: z.array(z.object({ name: z.string(), id: z.string() })) }));
-    assert.equal(manifest.apis.length, 23);
+    assert.equal(manifest.apis.length, 32);
     assert.ok(manifest.apis.some((api) => api.name === 'nasa_mars_rover' && api.id === 'nasa/mars_rover'));
     await client.close();
   });
@@ -94,10 +94,13 @@ describe('MCP server', () => {
     const { client, fake } = await connect();
     const read = await client.readResource({ uri: 'nasa://apod/image?date=2024-01-01' });
     const body = JSON.parse((read.contents[0] as { text: string }).text) as { source: { url: string; retrieved_at: string }; data: { title: string } };
-    assert.equal(body.data.title, 'Real APOD');
+    const data = body.data as { title: string; date: string; basic_html?: string };
+    assert.equal(data.title, 'Real APOD');
+    assert.equal(data.date, '2024-01-01');
+    assert.equal('basic_html' in data, false, 'the full HTML page is not retained');
     assert.equal(body.source.retrieved_at, FIXED_NOW.toISOString());
-    assert.match(body.source.url, /api_key=\[REDACTED\]/);
-    assert.equal(fake.calls.at(-1)!.url.searchParams.get('date'), '2024-01-01');
+    assert.equal(body.source.url, 'https://science.nasa.gov/wp-json/wp/v2/apod-basic/240101');
+    assert.equal(fake.calls.at(-1)!.url.pathname, '/wp-json/wp/v2/apod-basic/240101');
     await assert.rejects(client.readResource({ uri: 'nasa://apod/image?date=not-a-date' }), /Invalid resource URI/);
     await assert.rejects(client.readResource({ uri: 'nasa://apod/image?date=2024-01-01&evil=1' }), /unsupported query parameter/);
     await assert.rejects(client.readResource({ uri: 'nasa://mars-rover/photo?rover=curiosity&id=1' }), (error: unknown) => error instanceof McpError && error.code === -32002);

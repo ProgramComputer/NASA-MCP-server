@@ -20,43 +20,155 @@ async function call(name: string, args: Record<string, unknown>, routes: Array<[
   return { result, calls: fake.calls, text: textOf(result) };
 }
 
-describe('api.nasa.gov tools', () => {
-  it('nasa_apod sends the key as api_key and embeds only real images from nasa.gov', async () => {
-    const apod = [
-      { date: '2024-01-01', title: 'Galaxy', media_type: 'image', url: 'https://apod.nasa.gov/a.png', explanation: 'x' },
-      { date: '2024-01-02', title: 'Video', media_type: 'video', url: 'https://www.youtube.com/embed/x', explanation: 'y' }
-    ];
-    const { result, calls } = await call('nasa_apod', { start_date: '2024-01-01', end_date: '2024-01-02', max_images: 5 }, [
-      ['api.nasa.gov/planetary/apod', () => jsonResponse(apod)],
-      ['apod.nasa.gov', () => new Response(PNG, { headers: { 'content-type': 'image/png' } })]
-    ]);
-    assert.equal(calls[0].url.searchParams.get('api_key'), TEST_NASA_KEY);
-    assert.equal(calls[0].url.searchParams.get('start_date'), '2024-01-01');
-    const images = result.content.filter((c) => c.type === 'image');
-    assert.equal(images.length, 1);
-    assert.equal((images[0] as { mimeType: string }).mimeType, 'image/png');
-    assert.equal(calls.length, 2, 'video URLs and non-NASA hosts are never downloaded');
-    assert.doesNotMatch(JSON.stringify(result), new RegExp(TEST_NASA_KEY));
+const APOD_API = 'science.nasa.gov/wp-json/wp/v2/apod-basic';
+const APOD_ASSETS = 'https://assets.science.nasa.gov/content/dam/science/cds/apod/apod';
+
+/** A post shaped like /wp/v2/apod-basic output (HTML fields included). */
+function apodPost(date: string, overrides: Record<string, unknown> = {}) {
+  const ymd = date.slice(2).replace(/-/g, '');
+  return {
+    date,
+    post_id: Number(ymd),
+    title: `Galaxy &#8220;${date}&#8221;`,
+    permalink: `https://science.nasa.gov/image-article/apod-${date}/`,
+    media_type: 'image',
+    explanation: '<strong>Explanation:</strong> A <a href="https://example.org/g">galaxy</a> &amp; its stars.<br><br><strong>Tomorrow&#039;s picture:</strong> more',
+    credit: '<b> Image Credit &amp; Copyright: </b> <a href="https://example.org/a">A. Astronomer</a> , Some Observatory',
+    copyright: '<b> Image Credit &amp; Copyright: </b> <a href="https://example.org/a">A. Astronomer</a> , Some Observatory',
+    alt: 'A spiral galaxy.',
+    url: `https://science.nasa.gov/image-article/apod-${date}/`,
+    hdurl: `https://assets.science.nasa.gov/dynamicimage/assets/science/cds/apod/apod/x/${ymd}.jpg?w=2000&h=1000&fit=clip`,
+    basic_html:
+      '<!doctype html><html><head><meta property="og:image" content="https://assets.science.nasa.gov/og.jpg"></head><body><center>' +
+      `<a href="${APOD_ASSETS}/x/${ymd}.jpg"><IMG SRC="${APOD_ASSETS}/x/${ymd}.jpg" alt="A spiral galaxy."></a></center></body></html>`,
+    basic_html_url: `https://science.nasa.gov/wp-json/wp/v2/apod-basic/${ymd}/html`,
+    ...overrides
+  };
+}
+
+const imageResponse = () => new Response(PNG, { headers: { 'content-type': 'image/png' } });
+
+describe('nasa_apod (NASA Science WordPress API)', () => {
+  it('fetches one date by YYMMDD without an API key, strips HTML and embeds a 1024-pixel rendition', async () => {
+    const { result, calls, text } = await call(
+      'nasa_apod',
+      { date: '2024-01-01' },
+      [
+        [`${APOD_API}/240101`, () => jsonResponse(apodPost('2024-01-01'))],
+        ['assets.science.nasa.gov', imageResponse]
+      ],
+      { nasaApiKey: undefined }
+    );
+    assert.equal(result.isError, undefined);
+    assert.equal(calls[0].url.pathname, '/wp-json/wp/v2/apod-basic/240101');
+    assert.equal(calls[0].url.search, '', 'the new API takes no key or query parameters');
+    assert.match(text, /## Galaxy “2024-01-01” \(2024-01-01\)/);
+    assert.match(text, /Credit: A\. Astronomer, Some Observatory\n/);
+    assert.doesNotMatch(text, /Copyright:/, 'an identical copyright line is not repeated');
+    assert.match(text, /Image: https:\/\/assets\.science\.nasa\.gov\/content\/dam\/science\/cds\/apod\/apod\/x\/240101\.jpg/);
+    assert.match(text, /Alt text: A spiral galaxy\./);
+    assert.match(text, /\nA galaxy & its stars\.\n\nTomorrow's picture: more$/);
+    assert.doesNotMatch(text, /<|&amp;|Explanation:/);
+    assert.equal(calls[1].url.pathname, '/dynamicimage/assets/science/cds/apod/apod/x/240101.jpg');
+    assert.equal(calls[1].url.searchParams.get('w'), '1024');
+    assert.equal(result.content.filter((c) => c.type === 'image').length, 1);
   });
 
-  it('nasa_apod never emits image content when the download is not an image', async () => {
+  it('pages through a date range 25 posts at a time and lists it oldest first', async () => {
+    const dates = Array.from({ length: 30 }, (_, i) => `2024-01-${String(30 - i).padStart(2, '0')}`);
+    const { calls, text } = await call('nasa_apod', { start_date: '2024-01-01', end_date: '2024-01-30', max_images: 0 }, [
+      [
+        APOD_API,
+        (request) => {
+          const page = Number(request.url.searchParams.get('page'));
+          return jsonResponse(dates.slice((page - 1) * 25, page * 25).map((d) => apodPost(d)), { headers: { 'x-wp-totalpages': '2' } });
+        }
+      ]
+    ]);
+    assert.equal(calls.length, 2);
+    for (const [i, request] of calls.entries()) {
+      assert.equal(request.url.searchParams.get('date_from'), '240101');
+      assert.equal(request.url.searchParams.get('date_to'), '240130');
+      assert.equal(request.url.searchParams.get('per_page'), '25');
+      assert.equal(request.url.searchParams.get('page'), String(i + 1));
+    }
+    assert.match(text, /^30 APOD entries from 2024-01-01 to 2024-01-30/);
+    const headings = [...text.matchAll(/^## .* \((\d{4}-\d{2}-\d{2})\)$/gm)].map((m) => m[1]);
+    assert.deepEqual(headings, [...dates].reverse());
+  });
+
+  it('defaults to the latest post and reports video URLs from the page without downloading them', async () => {
+    const video = apodPost('2026-09-29', {
+      media_type: 'video',
+      hdurl: 'https://assets.science.nasa.gov/dynamicimage/assets/science/cds/apod/apod/2026/september/frame.jpg?w=1280',
+      basic_html: '<html><body><iframe width="960" height="540" src="//www.youtube.com/embed/abc123?rel=0&amp;x=1" allowfullscreen></iframe></body></html>'
+    });
+    const { calls, result, text } = await call('nasa_apod', { max_images: 5 }, [[APOD_API, () => jsonResponse([video])]]);
+    assert.equal(calls.length, 1, 'videos and still frames are never downloaded');
+    assert.equal(calls[0].url.searchParams.get('per_page'), '1');
+    assert.match(text, /Video: https:\/\/www\.youtube\.com\/embed\/abc123\?rel=0&x=1/);
+    assert.match(text, /Still frame: https:\/\/assets\.science\.nasa\.gov\/.*frame\.jpg/);
+    assert.equal(result.content.some((c) => c.type === 'image'), false);
+  });
+
+  it('ignores the placeholder hdurl of old posts, falls back to the original image, and explains missing days', async () => {
+    const placeholder = apodPost('1995-06-20', {
+      hdurl: 'https://assets.science.nasa.gov/dynamicimage/assets/science/astro/programs/cosmic-origins/images/misc/news-thumbnail.png?w=594',
+      basic_html: '<html><body><p>no picture element</p></body></html>'
+    });
+    const none = await call('nasa_apod', { date: '1995-06-20' }, [[`${APOD_API}/950620`, () => jsonResponse(placeholder)]]);
+    assert.doesNotMatch(none.text, /Image:|news-thumbnail/);
+    assert.equal(none.calls.length, 1);
+
+    const gif = apodPost('1995-06-16', { basic_html: `<body><IMG SRC="${APOD_ASSETS}/1995/june/e_lens.gif"></body>` });
+    const fallback = await call('nasa_apod', { date: '1995-06-16' }, [
+      [`${APOD_API}/950616`, () => jsonResponse(gif)],
+      ['assets.science.nasa.gov/dynamicimage', () => textResponse('not found', { status: 404 })],
+      ['assets.science.nasa.gov/content/dam', () => new Response(PNG, { headers: { 'content-type': 'image/gif' } })]
+    ]);
+    assert.deepEqual(
+      fallback.calls.map((c) => c.url.pathname.split('/')[1]),
+      ['wp-json', 'dynamicimage', 'content']
+    );
+    assert.equal(fallback.result.content.filter((c) => c.type === 'image').length, 1);
+
+    const missing = await call('nasa_apod', { date: '1995-06-17' }, [
+      [`${APOD_API}/950617`, () => jsonResponse({ code: 'apod_basic_not_found', message: 'APOD not found.', data: { status: 404 } }, { status: 404 })]
+    ]);
+    assert.equal(missing.result.isError, true);
+    assert.match(missing.text, /has no picture for 1995-06-17 \(HTTP 404: APOD not found\)/);
+  });
+
+  it('never emits image content when the download is not an image', async () => {
     const { result } = await call('nasa_apod', { date: '2024-01-01' }, [
-      ['api.nasa.gov/planetary/apod', () => jsonResponse({ date: '2024-01-01', title: 'T', media_type: 'image', url: 'https://apod.nasa.gov/a.jpg' })],
-      ['apod.nasa.gov', () => textResponse('<html>not an image</html>', { headers: { 'content-type': 'text/html' } })]
+      [`${APOD_API}/240101`, () => jsonResponse(apodPost('2024-01-01'))],
+      ['assets.science.nasa.gov', () => textResponse('<html>not an image</html>', { headers: { 'content-type': 'text/html' } })]
     ]);
     assert.equal(result.isError, undefined);
     assert.equal(result.content.some((c) => c.type === 'image'), false);
     assert.match(textOf(result), /not embedded: response was text\/html/);
   });
 
-  it('nasa_apod validates date combinations and needs NASA_API_KEY', async () => {
-    const both = await call('nasa_apod', { date: '2024-01-01', count: 3 }, []);
-    assert.match(both.text, /count cannot be combined/);
-    const noKey = await call('nasa_apod', {}, [], { nasaApiKey: undefined });
-    assert.match(noKey.text, /NASA_API_KEY is not set/);
-    assert.equal(noKey.calls.length, 0);
+  it('retires count and thumbs, and rejects future, pre-1995 and oversized requests before calling upstream', async () => {
+    const cases: Array<[Record<string, unknown>, RegExp]> = [
+      [{ count: 3 }, /count: The APOD API moved .* no random mode/],
+      [{ thumbs: true }, /thumbs: The new APOD API has no thumbs option/],
+      [{ date: '2026-09-30' }, /date 2026-09-30 is in the future \(today is 2026-09-29 UTC\)/],
+      [{ date: '1995-06-15' }, /APOD starts on 1995-06-16/],
+      [{ start_date: '2026-01-01' }, /limited to 100 days/],
+      [{ date: '2024-01-01', start_date: '2024-01-01' }, /cannot be combined/],
+      [{ end_date: '2024-01-01' }, /end_date requires start_date/]
+    ];
+    for (const [args, pattern] of cases) {
+      const out = await call('nasa_apod', args, []);
+      assert.equal(out.result.isError, true, JSON.stringify(args));
+      assert.match(out.text, pattern);
+      assert.equal(out.calls.length, 0);
+    }
   });
+});
 
+describe('api.nasa.gov tools', () => {
   it('nasa_neo enforces the 7-day feed window and supports asteroid lookup', async () => {
     const tooLong = await call('nasa_neo', { start_date: '2024-01-01', end_date: '2024-01-10' }, []);
     assert.match(tooLong.text, /limited to 7 days/);
@@ -66,11 +178,25 @@ describe('api.nasa.gov tools', () => {
     assert.equal(today.calls[0].url.searchParams.get('start_date'), '2026-09-29');
   });
 
-  it('nasa_donki handles an empty body as no events and lower-cases type', async () => {
-    const { result, calls } = await call('nasa_donki', { type: 'FLR', startDate: '2024-01-01' }, [['api.nasa.gov/DONKI/FLR', () => new Response('', { status: 200 })]]);
+  it('nasa_donki queries the CCMC DONKI API without a key, handles empty results and lower-cases type', async () => {
+    const { result, calls } = await call('nasa_donki', { type: 'FLR', startDate: '2024-01-01' }, [['ccmc.gsfc.nasa.gov/DONKI-API/get/FLR', () => new Response('', { status: 200 })]], {
+      nasaApiKey: undefined
+    });
     assert.equal(result.isError, undefined);
-    assert.match(textOf(result), /No DONKI FLR events/);
+    assert.match(textOf(result), /No DONKI FLR events from 2024-01-01/);
+    assert.equal(calls[0].url.pathname, '/DONKI-API/get/FLR');
     assert.equal(calls[0].url.searchParams.get('startDate'), '2024-01-01');
+    assert.equal(calls[0].url.searchParams.has('api_key'), false);
+    assert.equal(calls[0].url.searchParams.has('endDate'), false, 'DONKI applies its own default end date');
+
+    const empty = await call('nasa_donki', { type: 'gst', startDate: '2010-01-01', endDate: '2010-01-02' }, [['ccmc.gsfc.nasa.gov/DONKI-API/get/GST', () => jsonResponse([])]]);
+    assert.match(empty.text, /No DONKI GST events from 2010-01-01 to 2010-01-02\./);
+
+    const wsa = await call('nasa_donki', { type: 'wsa', startDate: '2026-09-01', endDate: '2026-09-29' }, [
+      ['ccmc.gsfc.nasa.gov/DONKI-API/get/WSAEnlilSimulations', () => jsonResponse([{ simulationID: 'WSA-ENLIL/1' }, { simulationID: 'WSA-ENLIL/2' }])]
+    ]);
+    assert.match(wsa.text, /^Retrieved 2 WSA records from 2026-09-01 to 2026-09-29\./);
+    assert.match(wsa.text, /WSA-ENLIL\/1/);
   });
 
   it('nasa_mars_rover reports the retired upstream accurately instead of fabricating photos', async () => {

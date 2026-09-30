@@ -9,7 +9,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { startMockCmr, type MockCmr } from '../helpers/mock-cmr-server';
 import { serverCommand, serverEnv, spawnServer, stopServer, waitForExit } from '../helpers/server-process';
 
-const EXPECTED_TOOL_COUNT = 23;
+const EXPECTED_TOOL_COUNT = 32;
 let cmr: MockCmr;
 // Run from an empty directory so a developer's .env (and the checkout) is never picked up.
 const isolatedCwd = mkdtempSync(join(tmpdir(), 'nasa-mcp-cwd-'));
@@ -51,7 +51,7 @@ async function exerciseClient(client: Client) {
 
   await assert.rejects(client.callTool({ name: 'nasa_unknown', arguments: {} }), /Unknown tool/);
 
-  const noKey = await client.callTool({ name: 'nasa_apod', arguments: {} });
+  const noKey = await client.callTool({ name: 'nasa_neo', arguments: {} });
   assert.equal(noKey.isError, true);
   assert.match(JSON.stringify(noKey.content), /NASA_API_KEY is not set/);
 }

@@ -24,12 +24,6 @@ function numberOrText(value: string | undefined): number | string | undefined {
   return /^-?\d+(\.\d+)?$/.test(value.trim()) ? Number(value) : value;
 }
 
-function booleanOrText(value: string | undefined): boolean | string | undefined {
-  if (value === undefined || value === '') return undefined;
-  if (/^(true|false)$/i.test(value.trim())) return value.trim().toLowerCase() === 'true';
-  return value;
-}
-
 function pick(args: Record<string, string>, mapping: Record<string, (value: string | undefined) => unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, convert] of Object.entries(mapping)) {
@@ -45,8 +39,7 @@ function describeCall(tool: string, toolArgs: Record<string, unknown>): string {
   return `Use the ${tool} tool with arguments ${JSON.stringify(toolArgs)}.`;
 }
 
-const apodArgs = (args: Record<string, string>) =>
-  pick(args, { date: asText, count: numberOrText, start_date: asText, end_date: asText, thumbs: booleanOrText });
+const apodArgs = (args: Record<string, string>) => pick(args, { date: asText, start_date: asText, end_date: asText });
 
 export const PROMPTS: PromptDefinition[] = [
   {
@@ -54,11 +47,9 @@ export const PROMPTS: PromptDefinition[] = [
     aliases: [],
     description: "Fetch NASA's Astronomy Picture of the Day with optional date selection",
     arguments: [
-      { name: 'date', description: 'Date of the picture (YYYY-MM-DD)', required: false },
-      { name: 'count', description: 'Number of random pictures', required: false },
+      { name: 'date', description: 'Date of the picture (YYYY-MM-DD); defaults to the latest', required: false },
       { name: 'start_date', description: 'Start of a date range (YYYY-MM-DD)', required: false },
-      { name: 'end_date', description: 'End of a date range (YYYY-MM-DD)', required: false },
-      { name: 'thumbs', description: 'Include video thumbnails (true/false)', required: false }
+      { name: 'end_date', description: 'End of a date range (YYYY-MM-DD)', required: false }
     ],
     tool: 'nasa_apod',
     toToolArgs: apodArgs,
@@ -132,16 +123,15 @@ export const PROMPTS: PromptDefinition[] = [
     aliases: [],
     description: "Get NASA's Astronomy Picture of the Day with a natural language prompt",
     arguments: [
-      { name: 'date', description: 'Date of the picture (YYYY-MM-DD)', required: false },
-      { name: 'count', description: 'Number of random pictures', required: false },
+      { name: 'date', description: 'Date of the picture (YYYY-MM-DD); defaults to the latest', required: false },
       { name: 'start_date', description: 'Start of a date range (YYYY-MM-DD)', required: false },
       { name: 'end_date', description: 'End of a date range (YYYY-MM-DD)', required: false }
     ],
     tool: 'nasa_apod',
     toToolArgs: apodArgs,
     message: (args) =>
-      `Show me the NASA Astronomy Picture of the Day${args.date ? ` for ${args.date}` : ''}${args.count ? ` (${args.count} random images)` : ''}` +
-      `${args.start_date && args.end_date ? ` from ${args.start_date} to ${args.end_date}` : ''}.`
+      `Show me the NASA Astronomy Picture of the Day${args.date ? ` for ${args.date}` : ''}` +
+      `${args.start_date ? ` from ${args.start_date} to ${args.end_date || 'today'}` : ''}.`
   }
 ];
 

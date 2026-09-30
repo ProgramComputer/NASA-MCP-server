@@ -54,6 +54,17 @@ describe('live CMR', { skip: skipLive }, () => {
   });
 });
 
+describe('live APOD', { skip: skipLive }, () => {
+  it('the NASA Science APOD API returns a known date without a key', async () => {
+    const nasa = createNasaMcpServer({ config: { ...loadConfig(process.env, []), nasaApiKey: undefined } });
+    const result = await nasa.callTool('nasa_apod', { date: '2015-07-14', max_images: 0 });
+    const text = result.content.map((c) => (c.type === 'text' ? c.text : '')).join('\n');
+    assert.equal(result.isError, undefined, text);
+    assert.match(text, /## New Horizons Passes Pluto and Charon \(2015-07-14\)/);
+    assert.match(text, /Image: https:\/\/assets\.science\.nasa\.gov\//);
+  });
+});
+
 describe('live FIRMS', { skip: skipFirms }, () => {
   it('area query with the configured MAP_KEY returns a valid result', async () => {
     const result = await server().callTool('nasa_firms', { bbox: '-125,32,-114,42', days: 1, limit: 5 });

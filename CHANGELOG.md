@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+### Breaking changes and migration
+
+- **`nasa_apod` uses the NASA Science APOD API** (`science.nasa.gov/wp-json/wp/v2/apod-basic`). The api.nasa.gov `/planetary/apod` endpoint returns HTTP 503/504 and the api.nasa.gov catalog says the legacy API goes offline on 2026-12-01. The new API needs no key, so `nasa_apod`, the `nasa://apod/image` resource template and the APOD prompts work without `NASA_API_KEY`.
+  - `count` (random pictures) and `thumbs` are retired: the new API has no random mode or thumbnail option. Calls that pass them get a migration message.
+  - `date` defaults to the latest published picture. Dates before 1995-06-16 or in the future are rejected before any request, and a day without a picture reports HTTP 404 clearly.
+  - Titles, credits and explanations are plain text (the new API returns HTML). Video entries report the video URL and a still frame. Embedded images are 1024-pixel-wide renditions when the image host offers them.
+  - The `nasa://apod/image` resource returns one entry object, without the upstream `basic_html` page.
+  - The `nasa/get-astronomy-picture` and `apod-daily` prompts no longer take `count` or `thumbs`.
+- **`nasa_donki` uses the NASA CCMC DONKI API** (`ccmc.gsfc.nasa.gov/DONKI-API/get`). CCMC moved the public API there on 2026-09-30, and `api.nasa.gov/DONKI/*` now redirects to a CCMC news page instead of returning data. CCMC kept the parameters and response formats. The new API needs no key, so `nasa_donki` works without `NASA_API_KEY`.
+
+### New tools
+
+- `nasa_insight_weather`: InSight Mars weather. Historical data only: the feed is frozen at sols 675-681 (October 2020). Needs `NASA_API_KEY`.
+- `nasa_tle`: satellite two-line element sets by NORAD catalog number or name search (tle.ivanstanojevic.me, with CelesTrak data).
+- `nasa_ssc_observatories` and `nasa_ssc_locations`: the Satellite Situation Center observatory list and spacecraft positions in GEO, GM, GSE, GSM, SM and GEI coordinates. Long ranges are thinned automatically to keep the output bounded.
+- `nasa_techport`: TechPort project search and project details. These endpoints need no token.
+- `nasa_techtransfer`: NASA patents, issued patents, software and spinoffs from technology.nasa.gov (the api.nasa.gov `/techtransfer` route only serves a help page).
+- `nasa_trek_layers` and `nasa_trek_tile`: Mars, Moon and Vesta Trek layer search and WMTS tiles, addressed by zoom/row/column or by latitude/longitude.
+- `jpl_mission_design`: the JPL Small-Body Mission Design API in object mode and accessible-targets mode. Porkchop-plot maps (mode M) and mission-extension searches (mode T) are not exposed: their responses are too large or too slow for a tool call.
+
+### Fixes
+
+- Upstream error messages include the `{"response":{"message":...}}` bodies returned by the TLE API.
+
 ## 1.1.0
 
 A reliability and CMR release. It is published as a minor version, but **default responses, parameter validation and runtime support changed in ways existing clients can notice**. Anyone depending on `^1.0.x` (or `@latest`) will receive these changes, so review the list below before upgrading, or pin `1.0.14`.

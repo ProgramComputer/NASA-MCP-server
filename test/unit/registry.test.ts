@@ -10,11 +10,13 @@ import { fakeFetch } from '../helpers/fake-fetch';
 const EXPECTED_TOOLS = [
   'nasa_apod', 'nasa_neo', 'nasa_epic', 'nasa_gibs', 'nasa_cmr', 'nasa_firms', 'nasa_images', 'nasa_exoplanet', 'nasa_donki',
   'nasa_mars_rover', 'nasa_eonet', 'nasa_power', 'nasa_osdr_files', 'jpl_sbdb', 'jpl_fireball', 'jpl_jd_cal', 'jpl_nhats',
-  'jpl_cad', 'jpl_sentry', 'jpl_horizons', 'jpl_horizons_file', 'jpl_periodic_orbits', 'jpl_scout'
+  'jpl_cad', 'jpl_sentry', 'jpl_horizons', 'jpl_horizons_file', 'jpl_periodic_orbits', 'jpl_scout',
+  'nasa_insight_weather', 'nasa_tle', 'nasa_ssc_observatories', 'nasa_ssc_locations', 'nasa_techport', 'nasa_techtransfer',
+  'nasa_trek_layers', 'nasa_trek_tile', 'jpl_mission_design'
 ];
 
 describe('tool registry', () => {
-  it('advertises every tool from 1.0.14 exactly once, in a stable order', () => {
+  it('advertises every tool exactly once, in a stable order', () => {
     const names = listTools().map((tool) => tool.name);
     assert.deepEqual([...names].sort(), [...EXPECTED_TOOLS].sort());
     assert.equal(new Set(names).size, names.length);

@@ -8,14 +8,21 @@ import { exoplanetTool } from '../handlers/nasa/exoplanet';
 import { firmsTool } from '../handlers/nasa/firms';
 import { gibsTool } from '../handlers/nasa/gibs';
 import { imagesTool } from '../handlers/nasa/images';
+import { insightTool } from '../handlers/nasa/insight';
 import { marsRoverTool } from '../handlers/nasa/mars_rover';
 import { neoTool } from '../handlers/nasa/neo';
 import { osdrFilesTool } from '../handlers/nasa/osdr_files';
 import { powerTool } from '../handlers/nasa/power';
+import { sscLocationsTool, sscObservatoriesTool } from '../handlers/nasa/ssc';
+import { techportTool } from '../handlers/nasa/techport';
+import { techTransferTool } from '../handlers/nasa/techtransfer';
+import { tleTool } from '../handlers/nasa/tle';
+import { trekLayersTool, trekTileTool } from '../handlers/nasa/trek';
 import { cadTool } from '../handlers/jpl/cad';
 import { fireballTool } from '../handlers/jpl/fireball';
 import { horizonsFileTool, horizonsTool } from '../handlers/jpl/horizons';
 import { jdCalTool } from '../handlers/jpl/jd_cal';
+import { missionDesignTool } from '../handlers/jpl/mission_design';
 import { nhatsTool } from '../handlers/jpl/nhats';
 import { periodicOrbitsTool } from '../handlers/jpl/periodic_orbits';
 import { sbdbTool } from '../handlers/jpl/sbdb';
@@ -41,6 +48,14 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   eonetTool,
   powerTool,
   osdrFilesTool,
+  insightTool,
+  tleTool,
+  sscObservatoriesTool,
+  sscLocationsTool,
+  techportTool,
+  techTransferTool,
+  trekLayersTool,
+  trekTileTool,
   sbdbTool,
   fireballTool,
   jdCalTool,
@@ -50,7 +65,8 @@ export const TOOL_DEFINITIONS: readonly ToolDefinition[] = [
   horizonsTool,
   horizonsFileTool,
   periodicOrbitsTool,
-  scoutTool
+  scoutTool,
+  missionDesignTool
 ] as ToolDefinition[];
 
 /**
