@@ -105,6 +105,23 @@ The Streamable HTTP endpoint will be available at:
 http://127.0.0.1:3000/mcp
 ```
 
+## Use with ChatGPT
+
+ChatGPT connects to MCP servers in Developer Mode, over Streamable HTTP at a public HTTPS URL. Run the server yourself, with your own keys:
+
+1. Start the HTTP transport on all interfaces:
+
+   ```bash
+   env MCP_TRANSPORT=http MCP_HTTP_HOST=0.0.0.0 NASA_API_KEY=YOUR_API_KEY npx -y @programcomputer/nasa-mcp-server@latest
+   ```
+
+   With the default `MCP_HTTP_HOST=127.0.0.1`, the server only accepts requests addressed to `localhost`, so requests arriving through a tunnel or reverse proxy get `403 Forbidden`.
+
+2. Expose port 3000 over HTTPS with a tunnel (for example ngrok or Cloudflare Tunnel) or a reverse proxy.
+3. In ChatGPT settings, turn on Developer Mode and add a new plugin (called an app or connector in older versions) with the URL `https://YOUR_PUBLIC_HOST/mcp` and no authentication.
+
+The endpoint has no authentication, so anyone with the URL can use your NASA and FIRMS keys. Keep the URL private and stop the tunnel when you are done.
+
 ## Included NASA APIs
 
 This MCP server integrates the following NASA APIs:
