@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
+
+A migration release. APOD and DONKI moved to new upstream APIs (the old api.nasa.gov endpoints no longer return data), and nine tools were added. It is published as a minor version, but **`nasa_apod` and `nasa_donki` parameters and output changed**. Review the list below before upgrading, or pin `1.1.0`; note that APOD and DONKI no longer work in 1.1.0.
 
 ### Breaking changes and migration
 
