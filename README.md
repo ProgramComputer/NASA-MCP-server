@@ -82,7 +82,7 @@ The server can be configured with the following environment variables:
 
 ## Transport Modes
 
-By default, the server runs over stdio for local MCP clients such as Cursor and Claude Desktop.
+By default, the server runs over stdio for local MCP clients such as Cursor.
 
 To run the optional Streamable HTTP transport:
 
@@ -105,13 +105,11 @@ This MCP server integrates the following NASA APIs:
    - EPIC (Earth Polychromatic Imaging Camera)
    - DONKI (Space Weather Database Of Notifications, Knowledge, Information)
    - Insight (Mars Weather Service)
-   - Mars Rover Photos
    - NEO (Near Earth Object Web Service)
    - EONET (Earth Observatory Natural Event Tracker)
    - TLE (Two-Line Element)
    - NASA Image and Video Library
    - Exoplanet Archive
-   - NASA Sounds API (Beta)
    - POWER (Prediction Of Worldwide Energy Resources)
 
 2. **JPL Solar System Dynamics API** (ssd-api.jpl.nasa.gov):
@@ -139,20 +137,6 @@ Each NASA API is exposed through standardized MCP methods:
     "date": "2023-01-01", // Optional: YYYY-MM-DD format
     "count": 5, // Optional: Return a specified number of random images
     "thumbs": true // Optional: Return URL of video thumbnail
-  }
-}
-```
-
-### Mars Rover Photos
-
-```json
-{
-  "method": "nasa/mars-rover",
-  "params": {
-    "rover": "curiosity", // Required: "curiosity", "opportunity", or "spirit"
-    "sol": 1000, // Either sol or earth_date is required
-    "earth_date": "2023-01-01", // YYYY-MM-DD format
-    "camera": "FHAZ" // Optional: Filter by camera type
   }
 }
 ```
@@ -254,7 +238,6 @@ Example log messages:
 ```
 [INFO] NASA MCP Server initialized successfully
 [INFO] Processing APOD request for date: 2023-01-01
-[INFO] Fetching Mars Rover data for Curiosity, sol 1000
 [WARNING] Rate limit threshold reached (80%)
 [ERROR] Invalid parameter: 'date' must be in YYYY-MM-DD format
 ```
@@ -285,8 +268,8 @@ cp .env.example .env
 # Build the TypeScript code
 npm run build
 
-# Start the development server
-npm run dev
+# Start the server
+npm start
 
 # Run tests
 npm test
@@ -294,17 +277,14 @@ npm test
 
 ## Testing with MCP Inspector
 
-The NASA MCP Server includes a script to help you test the APIs using the MCP Inspector:
+To test the tools interactively, build the project and start the official [MCP Inspector](https://github.com/modelcontextprotocol/inspector) with the server:
 
 ```bash
-# Run the provided test script
-./scripts/test-with-inspector.sh
+npm run build
+npx @modelcontextprotocol/inspector node dist/index.js
 ```
 
-This will:
-1. Build the project to ensure the latest changes are included
-2. Start the MCP Inspector with the NASA MCP server running
-3. Allow you to interactively test all the NASA APIs
+The server reads `NASA_API_KEY` and `FIRMS_MAP_KEY` from a `.env` file in the working directory (see Development above). The Inspector prints a local URL; open it to list and call the tools.
 
 ### Example Test Requests
 
@@ -343,15 +323,6 @@ const apodResult = await client.request({
   params: {
     name: "nasa/apod",
     arguments: {}
-  }
-}, CallToolResultSchema);
-
-// Example: Get Mars Rover photos
-const marsRoverResult = await client.request({
-  method: "tools/call",
-  params: {
-    name: "nasa/mars-rover",
-    arguments: { rover: "curiosity", sol: 1000 }
   }
 }, CallToolResultSchema);
 
