@@ -83,10 +83,6 @@ EPIC natural-colour images:
 { "name": "nasa_neo", "arguments": { "start_date": "2024-01-01", "end_date": "2024-01-03" } }
 ```
 
-```json
-{ "name": "nasa_donki", "arguments": { "type": "cme", "startDate": "2024-01-01", "endDate": "2024-01-10" } }
-```
-
 InSight Mars weather (historical; the feed stopped in October 2020):
 
 ```json
@@ -94,6 +90,16 @@ InSight Mars weather (historical; the feed stopped in October 2020):
 ```
 
 ## Other NASA services (no key needed)
+
+DONKI space weather events (solar flares, CMEs, geomagnetic storms and more):
+
+```json
+{ "name": "nasa_donki", "arguments": { "type": "cme", "startDate": "2024-01-01", "endDate": "2024-01-10" } }
+```
+
+```json
+{ "name": "nasa_donki", "arguments": { "type": "flr", "startDate": "2026-09-01", "endDate": "2026-09-29" } }
+```
 
 Astronomy Picture of the Day: the latest picture, one date, or a range of up to 100 days:
 

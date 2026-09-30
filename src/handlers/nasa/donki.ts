@@ -1,22 +1,29 @@
 import { z } from 'zod';
 import { defineTool, READ_ONLY_REMOTE } from '../../tools/types';
+import { httpRequest } from '../../util/http';
 import { daysBetween, isoDate } from '../../util/validation';
-import { boundedText, json, nasaApiGet, sourceInfo, text } from '../common';
+import { boundedText, buildUrl, json, sourceInfo, text } from '../common';
 
 const SERVICE = 'NASA DONKI API';
+/**
+ * CCMC's public DONKI API, which needs no key. It moved here from
+ * kauai.ccmc.gsfc.nasa.gov/DONKI/WS/get on 2026-09-30, and api.nasa.gov/DONKI
+ * now redirects to a CCMC news page instead of returning data.
+ */
+const DONKI_API_BASE_URL = 'https://ccmc.gsfc.nasa.gov/DONKI-API/get';
 
 const TYPE_ENDPOINTS = {
-  cme: '/DONKI/CME',
-  cmea: '/DONKI/CMEAnalysis',
-  gst: '/DONKI/GST',
-  ips: '/DONKI/IPS',
-  flr: '/DONKI/FLR',
-  sep: '/DONKI/SEP',
-  mpc: '/DONKI/MPC',
-  rbe: '/DONKI/RBE',
-  hss: '/DONKI/HSS',
-  wsa: '/DONKI/WSAEnlilSimulations',
-  notifications: '/DONKI/notifications'
+  cme: '/CME',
+  cmea: '/CMEAnalysis',
+  gst: '/GST',
+  ips: '/IPS',
+  flr: '/FLR',
+  sep: '/SEP',
+  mpc: '/MPC',
+  rbe: '/RBE',
+  hss: '/HSS',
+  wsa: '/WSAEnlilSimulations',
+  notifications: '/notifications'
 } as const;
 
 type DonkiType = keyof typeof TYPE_ENDPOINTS;
@@ -39,14 +46,14 @@ export const donkiInputSchema = z
 export const donkiTool = defineTool({
   name: 'nasa_donki',
   title: 'NASA DONKI space weather',
-  description: 'Space Weather Database Of Notifications, Knowledge, Information (DONKI) events by type and date range. Requires NASA_API_KEY.',
+  description:
+    'Space Weather Database Of Notifications, Knowledge, Information (DONKI) events by type and date range, from the NASA CCMC DONKI API ' +
+    '(ccmc.gsfc.nasa.gov). No API key needed.',
   inputSchema: donkiInputSchema,
   annotations: READ_ONLY_REMOTE,
   async handler({ args, ctx }) {
-    const response = await nasaApiGet(ctx, SERVICE, TYPE_ENDPOINTS[args.type], {
-      startDate: args.startDate,
-      endDate: args.endDate
-    });
+    const url = buildUrl(`${DONKI_API_BASE_URL}${TYPE_ENDPOINTS[args.type]}`, { startDate: args.startDate, endDate: args.endDate });
+    const response = await httpRequest(ctx.fetch, { service: SERVICE, url });
     // DONKI answers "no events" with an empty body on some endpoints.
     const data = response.text().trim() ? response.json<unknown>() : [];
     const source = sourceInfo(ctx, SERVICE, response.url);

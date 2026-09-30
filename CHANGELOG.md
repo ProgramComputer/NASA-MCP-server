@@ -10,6 +10,7 @@
   - Titles, credits and explanations are plain text (the new API returns HTML). Video entries report the video URL and a still frame. Embedded images are 1024-pixel-wide renditions when the image host offers them.
   - The `nasa://apod/image` resource returns one entry object, without the upstream `basic_html` page.
   - The `nasa/get-astronomy-picture` and `apod-daily` prompts no longer take `count` or `thumbs`.
+- **`nasa_donki` uses the NASA CCMC DONKI API** (`ccmc.gsfc.nasa.gov/DONKI-API/get`). CCMC moved the public API there on 2026-09-30, and `api.nasa.gov/DONKI/*` now redirects to a CCMC news page instead of returning data. CCMC kept the parameters and response formats. The new API needs no key, so `nasa_donki` works without `NASA_API_KEY`.
 
 ### New tools
 

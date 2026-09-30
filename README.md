@@ -22,6 +22,7 @@ Big thanks to the MCP community for their support and guidance!
 Ask your MCP client things like:
 
 * "Show me today's Astronomy Picture of the Day and explain what it shows."
+* "Were there any solar storms in September 2026: strong flares, Earth-directed CMEs or geomagnetic storms?"
 * "Which asteroids fly past Earth today, and which one comes closest?"
 * "Will any asteroid pass closer to Earth than the Moon in the next 90 days?"
 * "What are the odds that Bennu hits Earth, according to JPL Sentry?"
@@ -80,7 +81,7 @@ The server can be configured with the following environment variables:
 
 | Variable | Description |
 |----------|-------------|
-| `NASA_API_KEY` | Your NASA API key (get at api.nasa.gov); used by NEO, DONKI and InSight weather |
+| `NASA_API_KEY` | Your NASA API key (get at api.nasa.gov); used by NEO and InSight weather |
 | `FIRMS_MAP_KEY` | Your FIRMS MAP_KEY for fire data (get at firms.modaps.eosdis.nasa.gov/api/map_key); separate from `NASA_API_KEY` |
 | `NASA_MCP_CMR_URL` | Optional CMR search URL (default: `https://cmr.earthdata.nasa.gov/search`) |
 | `MCP_TRANSPORT` | Transport mode: `stdio` (default) or `http` for Streamable HTTP |
@@ -110,11 +111,11 @@ This MCP server integrates the following NASA APIs:
 
 1. **NASA Open API** (api.nasa.gov, needs `NASA_API_KEY`):
    - NEO (Near Earth Object Web Service)
-   - DONKI (Space Weather Database Of Notifications, Knowledge, Information)
    - InSight Mars Weather Service (historical: the feed stopped updating in October 2020)
 
 2. **Other NASA APIs** (no key needed):
    - APOD (Astronomy Picture of the Day), from the NASA Science APOD API (science.nasa.gov)
+   - DONKI (Space Weather Database Of Notifications, Knowledge, Information), from NASA CCMC (ccmc.gsfc.nasa.gov)
    - EONET (Earth Observatory Natural Event Tracker)
    - TLE (Two-Line Element sets from CelesTrak, via tle.ivanstanojevic.me)
    - Satellite Situation Center (spacecraft locations)

@@ -178,11 +178,25 @@ describe('api.nasa.gov tools', () => {
     assert.equal(today.calls[0].url.searchParams.get('start_date'), '2026-09-29');
   });
 
-  it('nasa_donki handles an empty body as no events and lower-cases type', async () => {
-    const { result, calls } = await call('nasa_donki', { type: 'FLR', startDate: '2024-01-01' }, [['api.nasa.gov/DONKI/FLR', () => new Response('', { status: 200 })]]);
+  it('nasa_donki queries the CCMC DONKI API without a key, handles empty results and lower-cases type', async () => {
+    const { result, calls } = await call('nasa_donki', { type: 'FLR', startDate: '2024-01-01' }, [['ccmc.gsfc.nasa.gov/DONKI-API/get/FLR', () => new Response('', { status: 200 })]], {
+      nasaApiKey: undefined
+    });
     assert.equal(result.isError, undefined);
-    assert.match(textOf(result), /No DONKI FLR events/);
+    assert.match(textOf(result), /No DONKI FLR events from 2024-01-01/);
+    assert.equal(calls[0].url.pathname, '/DONKI-API/get/FLR');
     assert.equal(calls[0].url.searchParams.get('startDate'), '2024-01-01');
+    assert.equal(calls[0].url.searchParams.has('api_key'), false);
+    assert.equal(calls[0].url.searchParams.has('endDate'), false, 'DONKI applies its own default end date');
+
+    const empty = await call('nasa_donki', { type: 'gst', startDate: '2010-01-01', endDate: '2010-01-02' }, [['ccmc.gsfc.nasa.gov/DONKI-API/get/GST', () => jsonResponse([])]]);
+    assert.match(empty.text, /No DONKI GST events from 2010-01-01 to 2010-01-02\./);
+
+    const wsa = await call('nasa_donki', { type: 'wsa', startDate: '2026-09-01', endDate: '2026-09-29' }, [
+      ['ccmc.gsfc.nasa.gov/DONKI-API/get/WSAEnlilSimulations', () => jsonResponse([{ simulationID: 'WSA-ENLIL/1' }, { simulationID: 'WSA-ENLIL/2' }])]
+    ]);
+    assert.match(wsa.text, /^Retrieved 2 WSA records from 2026-09-01 to 2026-09-29\./);
+    assert.match(wsa.text, /WSA-ENLIL\/1/);
   });
 
   it('nasa_mars_rover reports the retired upstream accurately instead of fabricating photos', async () => {

@@ -157,7 +157,7 @@ Aliases: `nasa/exoplanet`
 
 ## `nasa_donki` — NASA DONKI space weather
 
-Space Weather Database Of Notifications, Knowledge, Information (DONKI) events by type and date range. Requires NASA_API_KEY.
+Space Weather Database Of Notifications, Knowledge, Information (DONKI) events by type and date range, from the NASA CCMC DONKI API (ccmc.gsfc.nasa.gov). No API key needed.
 
 Aliases: `nasa/donki`
 
