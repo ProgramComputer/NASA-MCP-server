@@ -178,25 +178,76 @@ describe('api.nasa.gov tools', () => {
     assert.equal(today.calls[0].url.searchParams.get('start_date'), '2026-09-29');
   });
 
-  it('nasa_donki queries the CCMC DONKI API without a key, handles empty results and lower-cases type', async () => {
-    const { result, calls } = await call('nasa_donki', { type: 'FLR', startDate: '2024-01-01' }, [['ccmc.gsfc.nasa.gov/DONKI-API/get/FLR', () => new Response('', { status: 200 })]], {
+  it('nasa_donki queries the CCMC DONKI API without a key and fills in the 30-day window DONKI expects', async () => {
+    const { result, calls } = await call('nasa_donki', { type: 'FLR', startDate: '2026-09-10' }, [['ccmc.gsfc.nasa.gov/DONKI-API/get/FLR', () => new Response('', { status: 200 })]], {
       nasaApiKey: undefined
     });
     assert.equal(result.isError, undefined);
-    assert.match(textOf(result), /No DONKI FLR events from 2024-01-01/);
+    assert.match(textOf(result), /No DONKI FLR events from 2026-09-10\./);
     assert.equal(calls[0].url.pathname, '/DONKI-API/get/FLR');
-    assert.equal(calls[0].url.searchParams.get('startDate'), '2024-01-01');
+    assert.equal(calls[0].url.searchParams.get('startDate'), '2026-09-10');
     assert.equal(calls[0].url.searchParams.has('api_key'), false);
-    assert.equal(calls[0].url.searchParams.has('endDate'), false, 'DONKI applies its own default end date');
+    assert.equal(calls[0].url.searchParams.has('endDate'), false, 'DONKI defaults the end to today');
 
-    const empty = await call('nasa_donki', { type: 'gst', startDate: '2010-01-01', endDate: '2010-01-02' }, [['ccmc.gsfc.nasa.gov/DONKI-API/get/GST', () => jsonResponse([])]]);
-    assert.match(empty.text, /No DONKI GST events from 2010-01-01 to 2010-01-02\./);
+    // CCMC counts its default start back from today, so an old endDate alone would fail upstream.
+    const endOnly = await call('nasa_donki', { type: 'gst', endDate: '2010-01-31' }, [['ccmc.gsfc.nasa.gov/DONKI-API/get/GST', () => jsonResponse([])]]);
+    assert.equal(endOnly.calls[0].url.searchParams.get('startDate'), '2010-01-01');
+    assert.equal(endOnly.calls[0].url.searchParams.get('endDate'), '2010-01-31');
+    assert.match(endOnly.text, /No DONKI GST events from 2010-01-01 to 2010-01-31\./);
 
-    const wsa = await call('nasa_donki', { type: 'wsa', startDate: '2026-09-01', endDate: '2026-09-29' }, [
-      ['ccmc.gsfc.nasa.gov/DONKI-API/get/WSAEnlilSimulations', () => jsonResponse([{ simulationID: 'WSA-ENLIL/1' }, { simulationID: 'WSA-ENLIL/2' }])]
-    ]);
-    assert.match(wsa.text, /^Retrieved 2 WSA records from 2026-09-01 to 2026-09-29\./);
-    assert.match(wsa.text, /WSA-ENLIL\/1/);
+    for (const [args, pattern] of [
+      [{ type: 'flr', startDate: '2026-08-01', endDate: '2026-09-29' }, /endDate: DONKI returns at most 30 days per request/],
+      [{ type: 'flr', startDate: '2026-01-01' }, /startDate 2026-01-01 is 271 days before today; also set endDate \(at most 2026-01-31\)/],
+      [{ type: 'flr', startDate: '2026-10-01' }, /startDate 2026-10-01 is in the future/],
+      [{ type: 'flr', startDate: '2026-09-02', endDate: '2026-09-01' }, /endDate must not be before startDate/],
+      [{ type: 'flr', response_mode: 'full' }, /response_mode/]
+    ] as Array<[Record<string, unknown>, RegExp]>) {
+      const out = await call('nasa_donki', args, []);
+      assert.equal(out.result.isError, true, JSON.stringify(args));
+      assert.match(out.text, pattern);
+      assert.equal(out.calls.length, 0);
+    }
+  });
+
+  it('nasa_donki summarizes each event on one line by default and returns full records on request', async () => {
+    const flares = [
+      { flrID: '2026-09-01T21:04:00-FLR-001', classType: 'C5.7', beginTime: '2026-09-01T21:04Z', peakTime: '2026-09-01T21:10Z', endTime: '2026-09-01T21:12Z', sourceLocation: 'N15E90', activeRegionNum: 14524, instruments: [{ displayName: 'GOES-P: EXIS 1.0-8.0' }], linkedEvents: [{ activityID: '2026-09-01T23:00:00-CME-001' }], note: 'long note' },
+      { flrID: '2026-09-02T18:57:00-FLR-001', classType: 'M3.0', beginTime: '2026-09-02T18:57Z', peakTime: '2026-09-02T19:20Z', endTime: '2026-09-02T19:48Z', sourceLocation: 'N12E90', activeRegionNum: null, linkedEvents: null }
+    ];
+    const flr = await call('nasa_donki', { type: 'flr', startDate: '2026-09-01', endDate: '2026-09-29' }, [['ccmc.gsfc.nasa.gov/DONKI-API/get/FLR', () => jsonResponse(flares)]]);
+    assert.equal(
+      flr.text,
+      'Retrieved 2 FLR records from 2026-09-01 to 2026-09-29.\n' +
+        '- 2026-09-01T21:04:00-FLR-001: class C5.7, peak 2026-09-01T21:10Z (2026-09-01T21:04Z to 2026-09-01T21:12Z), source N15E90 AR 14524; instruments: GOES-P: EXIS 1.0-8.0; linked: 2026-09-01T23:00:00-CME-001\n' +
+        '- 2026-09-02T18:57:00-FLR-001: class M3.0, peak 2026-09-02T19:20Z (2026-09-02T18:57Z to 2026-09-02T19:48Z), source N12E90'
+    );
+
+    const cme = {
+      activityID: '2026-09-02T10:24:00-CME-001',
+      startTime: '2026-09-02T10:24Z',
+      sourceLocation: '',
+      cmeAnalyses: [
+        { isMostAccurate: false, speed: 100 },
+        { isMostAccurate: true, speed: 280, halfAngle: 38, type: 'S', latitude: 6, longitude: 27, enlilList: [{ estimatedShockArrivalTime: '2026-09-06T16:00Z', isEarthGB: true, kp_90: 2, kp_135: 3, kp_180: 3 }] }
+      ],
+      linkedEvents: [{ activityID: '2026-09-06T17:38:00-IPS-001' }]
+    };
+    const gst = { gstID: '2026-06-05T15:00:00-GST-001', startTime: '2026-06-05T15:00Z', allKpIndex: [{ kpIndex: 5.67, observedTime: '2026-06-05T15:00Z', source: 'NOAA' }, { kpIndex: 6.33, observedTime: '2026-06-05T18:00Z', source: 'NOAA' }] };
+    const notice = { messageType: 'CME', messageID: '20260929-AL-001', messageURL: 'https://ccmc.gsfc.nasa.gov/x', messageIssueTime: '2026-09-29T01:01Z', messageBody: '## Summary:\n\nA fast CME was detected.' };
+    const lines = async (type: string, record: unknown) =>
+      (await call('nasa_donki', { type, startDate: '2026-09-01', endDate: '2026-09-29' }, [['ccmc.gsfc.nasa.gov', () => jsonResponse([record])]])).text.split('\n')[1];
+    assert.equal(
+      await lines('cme', cme),
+      '- 2026-09-02T10:24:00-CME-001: start 2026-09-02T10:24Z; 280 km/s, half-angle 38°, type S, lat 6 lon 27; Earth arrival 2026-09-06T16:00Z (glancing blow, Kp up to 3); linked: 2026-09-06T17:38:00-IPS-001'
+    );
+    assert.equal(await lines('gst', gst), '- 2026-06-05T15:00:00-GST-001: start 2026-06-05T15:00Z, max Kp 6.33 at 2026-06-05T18:00Z (NOAA)');
+    assert.equal(await lines('notifications', notice), '- 2026-09-29T01:01Z CME 20260929-AL-001: Summary: A fast CME was detected. https://ccmc.gsfc.nasa.gov/x');
+    assert.equal(await lines('sep', { sepID: 'SEP-1', eventTime: '2026-09-05T15:45Z', linkedEvents: [{ activityID: 'FLR-1' }] }), '- SEP-1: 2026-09-05T15:45Z; linked: FLR-1');
+
+    const recent = await call('nasa_donki', { type: 'flr', startDate: '2026-09-01', endDate: '2026-09-29', limit: 1, response_mode: 'raw' }, [['ccmc.gsfc.nasa.gov', () => jsonResponse(flares)]]);
+    assert.match(recent.text, /^Retrieved 2 FLR records from 2026-09-01 to 2026-09-29; showing the 1 most recent\.\n\[/);
+    const raw = JSON.parse(recent.text.slice(recent.text.indexOf('\n') + 1)) as Array<{ flrID: string }>;
+    assert.deepEqual(raw.map((r) => r.flrID), ['2026-09-02T18:57:00-FLR-001']);
   });
 
   it('nasa_mars_rover reports the retired upstream accurately instead of fabricating photos', async () => {

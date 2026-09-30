@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
+
+A migration release. APOD and DONKI moved to new upstream APIs (the old api.nasa.gov endpoints no longer return data), and nine tools were added. It is published as a minor version, but **`nasa_apod` and `nasa_donki` parameters and output changed**. Review the list below before upgrading, or pin `1.1.0`; note that APOD and DONKI no longer work in 1.1.0.
 
 ### Breaking changes and migration
 
@@ -10,7 +12,8 @@
   - Titles, credits and explanations are plain text (the new API returns HTML). Video entries report the video URL and a still frame. Embedded images are 1024-pixel-wide renditions when the image host offers them.
   - The `nasa://apod/image` resource returns one entry object, without the upstream `basic_html` page.
   - The `nasa/get-astronomy-picture` and `apod-daily` prompts no longer take `count` or `thumbs`.
-- **`nasa_donki` uses the NASA CCMC DONKI API** (`ccmc.gsfc.nasa.gov/DONKI-API/get`). CCMC moved the public API there on 2026-09-30, and `api.nasa.gov/DONKI/*` now redirects to a CCMC news page instead of returning data. CCMC kept the parameters and response formats. The new API needs no key, so `nasa_donki` works without `NASA_API_KEY`.
+- **`nasa_donki` uses the NASA CCMC DONKI API** (`ccmc.gsfc.nasa.gov/DONKI-API/get`). CCMC moved the public API there on 2026-09-30, and `api.nasa.gov/DONKI/*` now redirects to a CCMC news page instead of returning data. The new API needs no key, so `nasa_donki` works without `NASA_API_KEY`. CCMC kept the parameters and record formats but now rejects ranges longer than 30 days. The tool checks this before calling, and with only `endDate` it requests the 30 days before it (CCMC would count back from today and fail).
+- **`nasa_donki` returns one line per event by default** (`response_mode: "compact"`), with the key fields for each type: flare class and peak time, CME speed, cone angle and modeled Earth arrival, the highest Kp of a geomagnetic storm, and so on. `response_mode: "raw"` returns the full records as before, and `limit` keeps the most recent N events. The retained resource always has the full records. A month of CMEs is about 21 KB compact; the full records (about 270 KB) exceeded the output limit.
 
 ### New tools
 

@@ -91,7 +91,7 @@ InSight Mars weather (historical; the feed stopped in October 2020):
 
 ## Other NASA services (no key needed)
 
-DONKI space weather events (solar flares, CMEs, geomagnetic storms and more):
+DONKI space weather events (solar flares, CMEs, geomagnetic storms and more), up to 30 days per call. Results are one line per event; `response_mode: "raw"` returns the full records:
 
 ```json
 { "name": "nasa_donki", "arguments": { "type": "cme", "startDate": "2024-01-01", "endDate": "2024-01-10" } }
@@ -99,6 +99,10 @@ DONKI space weather events (solar flares, CMEs, geomagnetic storms and more):
 
 ```json
 { "name": "nasa_donki", "arguments": { "type": "flr", "startDate": "2026-09-01", "endDate": "2026-09-29" } }
+```
+
+```json
+{ "name": "nasa_donki", "arguments": { "type": "wsa", "startDate": "2026-09-01", "endDate": "2026-09-29", "response_mode": "raw", "limit": 3 } }
 ```
 
 Astronomy Picture of the Day: the latest picture, one date, or a range of up to 100 days:

@@ -157,15 +157,17 @@ Aliases: `nasa/exoplanet`
 
 ## `nasa_donki` — NASA DONKI space weather
 
-Space Weather Database Of Notifications, Knowledge, Information (DONKI) events by type and date range, from the NASA CCMC DONKI API (ccmc.gsfc.nasa.gov). No API key needed.
+Space Weather Database Of Notifications, Knowledge, Information (DONKI) events by type for up to 30 days at a time, from the NASA CCMC DONKI API (ccmc.gsfc.nasa.gov): solar flares, CMEs and their analyses, geomagnetic storms, interplanetary shocks, SEP, MPC, RBE and HSS events, WSA-ENLIL simulations and notifications. Compact one-line summaries by default; response_mode raw returns the full records. No API key needed.
 
 Aliases: `nasa/donki`
 
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `type` | `"cme"` \\| `"cmea"` \\| `"gst"` \\| `"ips"` \\| `"flr"` \\| `"sep"` \\| `"mpc"` \\| `"rbe"` \\| `"hss"` \\| `"wsa"` \\| `"notifications"` | yes |  | Event type: cme, cmea, gst, ips, flr, sep, mpc, rbe, hss, wsa, notifications. |
-| `startDate` | string |  |  | Start date (YYYY-MM-DD). DONKI defaults to 30 days before endDate. |
-| `endDate` | string |  |  | End date (YYYY-MM-DD). DONKI defaults to today. |
+| `startDate` | string |  |  | Start date (YYYY-MM-DD). With only endDate, 30 days before endDate; with neither, the last 30 days. |
+| `endDate` | string |  |  | End date (YYYY-MM-DD), at most 30 days after startDate. Defaults to today. |
+| `response_mode` | `"compact"` \\| `"raw"` |  | `"compact"` | compact (default): one line per event with its key fields. raw: the full DONKI records as JSON (large for cme, cmea and wsa). |
+| `limit` | integer (1–1000) |  |  | Return only the most recent N events. Applied by this server; DONKI has no limit parameter. |
 
 ## `nasa_mars_rover` — NASA Mars Rover Photos (retired upstream)
 
