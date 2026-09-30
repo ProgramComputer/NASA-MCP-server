@@ -17,7 +17,7 @@ Model Context Protocol server for NASA and JPL public APIs.
 Usage: nasa-mcp-server [--nasa-api-key KEY] [--firms-map-key KEY] [--version] [--help]
 
 Environment:
-  NASA_API_KEY      api.nasa.gov key (APOD, NEO, DONKI, Mars Rover Photos)
+  NASA_API_KEY      api.nasa.gov key (NEO, DONKI, InSight weather, Mars Rover Photos)
   FIRMS_MAP_KEY     FIRMS MAP_KEY (nasa_firms)
   MCP_TRANSPORT     stdio (default) or http
   MCP_HTTP_HOST     HTTP bind host (default 127.0.0.1)

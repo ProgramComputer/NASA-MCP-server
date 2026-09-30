@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { CsvParseError, parseCsv } from '../../src/util/csv';
 import { UpstreamError } from '../../src/util/errors';
+import { decodeEntities, htmlToText } from '../../src/util/html';
 import { httpRequest, summarizeErrorBody } from '../../src/util/http';
 import { clearRegisteredSecrets, redact, redactDeep, registerSecret } from '../../src/util/redact';
 import { boundingBoxSchema, canonicalJson, formatNumber, isIsoDate } from '../../src/util/validation';
@@ -50,6 +51,18 @@ describe('redact', () => {
     assert.equal(redact('token SuperSecretValue123 leaked'), 'token [REDACTED] leaked');
     assert.deepEqual(redactDeep({ a: ['x SuperSecretValue123'], n: 1 }), { a: ['x [REDACTED]'], n: 1 });
     clearRegisteredSecrets();
+  });
+});
+
+describe('HTML to text', () => {
+  it('decodes numeric and named entities and leaves unknown ones alone', () => {
+    assert.equal(decodeEntities('A &amp; B &#8217;s &#x2014; &rsquo;x&lsquo;&nbsp;&bogus;'), 'A & B ’s — ’x‘ &bogus;');
+  });
+
+  it('keeps line and paragraph breaks, drops tags and scripts, and collapses whitespace', () => {
+    const html = '<strong>Explanation:</strong>  A <a href="x">link</a>&nbsp;here.<br><br>Second<p>para</p><script>alert(1)</script>  end ';
+    assert.equal(htmlToText(html), 'Explanation: A link here.\n\nSecond\n\npara\n\nend');
+    assert.equal(htmlToText('&lt;b&gt;literal&lt;/b&gt;'), '<b>literal</b>', 'escaped markup stays as text');
   });
 });
 
@@ -121,6 +134,7 @@ describe('httpRequest', () => {
     });
     assert.equal(summarizeErrorBody('Invalid MAP_KEY.', 'text/plain'), 'Invalid MAP_KEY.');
     assert.equal(summarizeErrorBody('{"errors":["a","b"]}', 'application/json'), 'a; b');
+    assert.equal(summarizeErrorBody('{"response":{"message":"[page-size] too big"}}', 'application/json'), '[page-size] too big');
   });
 
   it('reports network failures and invalid JSON distinctly', async () => {

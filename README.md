@@ -21,6 +21,7 @@ Big thanks to the MCP community for their support and guidance!
 
 Ask your MCP client things like:
 
+* "Show me today's Astronomy Picture of the Day and explain what it shows."
 * "Which asteroids fly past Earth today, and which one comes closest?"
 * "Will any asteroid pass closer to Earth than the Moon in the next 90 days?"
 * "What are the odds that Bennu hits Earth, according to JPL Sentry?"
@@ -30,6 +31,13 @@ Ask your MCP client things like:
 * "Find cloud-hosted sea ice concentration datasets in NASA Earthdata."
 * "What were the daily highs, lows and solar energy in Denver during the first week of July 2025?"
 * "List the nearest roughly Earth-sized, temperate exoplanets discovered since 2020."
+* "Where was the ISS over the Earth between 00:00 and 00:10 UTC on 2026-09-29?"
+* "Get the latest two-line orbital elements for the ISS."
+* "Show me a Mars Trek map tile of Olympus Mons."
+* "What was the weather like at NASA's InSight lander during its last reported week on Mars?"
+* "Which near-Earth asteroids need the least delta-v for a mission launched in 2030?"
+* "Which NASA technology projects have worked on solar sails?"
+* "Find NASA patents about solar panels that companies can license."
 
 ## Disclaimer
 
@@ -72,7 +80,7 @@ The server can be configured with the following environment variables:
 
 | Variable | Description |
 |----------|-------------|
-| `NASA_API_KEY` | Your NASA API key (get at api.nasa.gov) |
+| `NASA_API_KEY` | Your NASA API key (get at api.nasa.gov); used by NEO, DONKI and InSight weather |
 | `FIRMS_MAP_KEY` | Your FIRMS MAP_KEY for fire data (get at firms.modaps.eosdis.nasa.gov/api/map_key); separate from `NASA_API_KEY` |
 | `NASA_MCP_CMR_URL` | Optional CMR search URL (default: `https://cmr.earthdata.nasa.gov/search`) |
 | `MCP_TRANSPORT` | Transport mode: `stdio` (default) or `http` for Streamable HTTP |
@@ -100,25 +108,37 @@ http://127.0.0.1:3000/mcp
 
 This MCP server integrates the following NASA APIs:
 
-1. **NASA Open API** (api.nasa.gov):
-   - APOD (Astronomy Picture of the Day)
-   - EPIC (Earth Polychromatic Imaging Camera)
-   - DONKI (Space Weather Database Of Notifications, Knowledge, Information)
-   - Insight (Mars Weather Service)
+1. **NASA Open API** (api.nasa.gov, needs `NASA_API_KEY`):
    - NEO (Near Earth Object Web Service)
+   - DONKI (Space Weather Database Of Notifications, Knowledge, Information)
+   - InSight Mars Weather Service (historical: the feed stopped updating in October 2020)
+
+2. **Other NASA APIs** (no key needed):
+   - APOD (Astronomy Picture of the Day), from the NASA Science APOD API (science.nasa.gov)
    - EONET (Earth Observatory Natural Event Tracker)
-   - TLE (Two-Line Element)
+   - TLE (Two-Line Element sets from CelesTrak, via tle.ivanstanojevic.me)
+   - Satellite Situation Center (spacecraft locations)
+   - TechPort (NASA technology projects)
+   - Technology Transfer (patents, software and spinoffs)
+   - Mars, Moon and Vesta Trek (WMTS map layers and tiles)
    - NASA Image and Video Library
    - Exoplanet Archive
+   - Open Science Data Repository (OSDR) files
    - POWER (Prediction Of Worldwide Energy Resources)
 
-2. **JPL Solar System Dynamics API** (ssd-api.jpl.nasa.gov):
+3. **JPL Solar System Dynamics API** (ssd-api.jpl.nasa.gov):
    - SBDB (Small-Body DataBase)
    - SBDB Close-Approach Data
    - Fireball Data
-   - Scout API
+   - Sentry (impact risk)
+   - Scout (NEO Confirmation Page orbits)
+   - NHATS (human-accessible NEOs)
+   - Small-Body Mission Design
+   - Horizons ephemerides
+   - Periodic Orbits
+   - Julian date converter
 
-3. **Earth Data APIs**:
+4. **Earth Data APIs**:
    - GIBS (Global Imagery Browse Services)
    - CMR (Common Metadata Repository) - Enhanced with advanced search capabilities
    - EPIC (Earth Polychromatic Imaging Camera)
@@ -134,12 +154,13 @@ Each NASA API is exposed through standardized MCP methods:
 {
   "method": "nasa/apod",
   "params": {
-    "date": "2023-01-01", // Optional: YYYY-MM-DD format
-    "count": 5, // Optional: Return a specified number of random images
-    "thumbs": true // Optional: Return URL of video thumbnail
+    "date": "2023-01-01", // Optional: YYYY-MM-DD (1995-06-16 or later); defaults to the latest picture
+    "max_images": 1 // Optional: how many pictures to embed (0-5)
   }
 }
 ```
+
+For a range, send `start_date` and `end_date` (up to 100 days) instead of `date`. APOD now comes from the NASA Science APOD API, which needs no key and has no random `count` or `thumbs` option.
 
 ### Near Earth Objects
 

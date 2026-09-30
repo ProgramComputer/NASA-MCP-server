@@ -3,7 +3,7 @@ import { registerSecret } from './util/redact';
 export const DEFAULT_CMR_BASE_URL = 'https://cmr.earthdata.nasa.gov/search';
 
 export interface ServerConfig {
-  /** api.nasa.gov key: APOD, NEO, DONKI, Mars Rover Photos. */
+  /** api.nasa.gov key: NEO, DONKI, InSight weather, Mars Rover Photos. */
   nasaApiKey?: string;
   /** FIRMS MAP_KEY (distinct from the api.nasa.gov key). */
   firmsMapKey?: string;

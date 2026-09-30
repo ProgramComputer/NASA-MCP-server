@@ -80,10 +80,6 @@ EPIC natural-colour images:
 ## api.nasa.gov (needs `NASA_API_KEY`)
 
 ```json
-{ "name": "nasa_apod", "arguments": { "date": "2024-01-01" } }
-```
-
-```json
 { "name": "nasa_neo", "arguments": { "start_date": "2024-01-01", "end_date": "2024-01-03" } }
 ```
 
@@ -91,7 +87,85 @@ EPIC natural-colour images:
 { "name": "nasa_donki", "arguments": { "type": "cme", "startDate": "2024-01-01", "endDate": "2024-01-10" } }
 ```
 
-## Other NASA services
+InSight Mars weather (historical; the feed stopped in October 2020):
+
+```json
+{ "name": "nasa_insight_weather", "arguments": {} }
+```
+
+## Other NASA services (no key needed)
+
+Astronomy Picture of the Day: the latest picture, one date, or a range of up to 100 days:
+
+```json
+{ "name": "nasa_apod", "arguments": {} }
+```
+
+```json
+{ "name": "nasa_apod", "arguments": { "date": "2015-07-14" } }
+```
+
+```json
+{ "name": "nasa_apod", "arguments": { "start_date": "2026-09-01", "end_date": "2026-09-07", "max_images": 0 } }
+```
+
+Two-line elements for the ISS, and a name search:
+
+```json
+{ "name": "nasa_tle", "arguments": { "satellite_id": 25544 } }
+```
+
+```json
+{ "name": "nasa_tle", "arguments": { "search": "STARLINK", "page_size": 5 } }
+```
+
+Satellite Situation Center: find observatory IDs, then locate spacecraft:
+
+```json
+{ "name": "nasa_ssc_observatories", "arguments": { "search": "mms", "active_on": "2026-09-29" } }
+```
+
+```json
+{ "name": "nasa_ssc_locations", "arguments": { "observatories": ["iss"], "start_time": "2026-09-29T00:00:00Z", "end_time": "2026-09-29T01:00:00Z" } }
+```
+
+```json
+{ "name": "nasa_ssc_locations", "arguments": { "observatories": ["mms1", "moon"], "start_time": "2026-09-01", "end_time": "2026-09-08", "coordinate_systems": ["gse", "gsm"] } }
+```
+
+TechPort technology projects:
+
+```json
+{ "name": "nasa_techport", "arguments": { "query": "solar sail", "limit": 5 } }
+```
+
+```json
+{ "name": "nasa_techport", "arguments": { "project_id": 94703 } }
+```
+
+Technology Transfer patents, software and spinoffs:
+
+```json
+{ "name": "nasa_techtransfer", "arguments": { "query": "solar panel", "limit": 5 } }
+```
+
+```json
+{ "name": "nasa_techtransfer", "arguments": { "query": "visualization", "collection": "software", "limit": 5 } }
+```
+
+Mars, Moon and Vesta Trek map layers and tiles:
+
+```json
+{ "name": "nasa_trek_layers", "arguments": { "body": "mars", "search": "olympus" } }
+```
+
+```json
+{ "name": "nasa_trek_tile", "arguments": { "body": "mars", "layer": "olympus_mons.eq", "zoom": 6, "latitude": 18.65, "longitude": 226.2 } }
+```
+
+```json
+{ "name": "nasa_trek_tile", "arguments": { "body": "moon", "layer": "LRO_WAC_Mosaic_Global_303ppd_v02", "zoom": 2, "row": 1, "col": 3 } }
+```
 
 ```json
 { "name": "nasa_images", "arguments": { "q": "apollo 11", "media_type": "image", "year_start": "1969", "year_end": "1970", "page_size": 5 } }
@@ -141,4 +215,14 @@ EPIC natural-colour images:
 
 ```json
 { "name": "jpl_periodic_orbits", "arguments": { "sys": "earth-moon", "family": "halo", "libr": 1, "branch": "N" } }
+```
+
+Mission options to one asteroid, and the most accessible NEOs for 2030 launches:
+
+```json
+{ "name": "jpl_mission_design", "arguments": { "sstr": "apophis" } }
+```
+
+```json
+{ "name": "jpl_mission_design", "arguments": { "crit": 3, "year": [2030], "sb_group": "neo", "lim": 10 } }
 ```
