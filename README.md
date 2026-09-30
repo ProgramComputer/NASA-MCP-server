@@ -17,6 +17,20 @@ Big thanks to the MCP community for their support and guidance!
 * Data conversion and formatting for LLM compatibility
 * Cross-platform support (Windows, macOS, Linux)
 
+## Example prompts
+
+Ask your MCP client things like:
+
+* "Which asteroids fly past Earth today, and which one comes closest?"
+* "Will any asteroid pass closer to Earth than the Moon in the next 90 days?"
+* "What are the odds that Bennu hits Earth, according to JPL Sentry?"
+* "Find NASA photos of the Apollo 11 lunar module taken in 1969."
+* "Which tropical storms and hurricanes are active right now?"
+* "Show me a detailed satellite view of the Nile Delta and the Sinai on 2025-07-15."
+* "Find cloud-hosted sea ice concentration datasets in NASA Earthdata."
+* "What were the daily highs, lows and solar energy in Denver during the first week of July 2025?"
+* "List the nearest roughly Earth-sized, temperate exoplanets discovered since 2020."
+
 ## Disclaimer
 
 **This project is not affiliated with, endorsed by, or related to NASA (National Aeronautics and Space Administration) or any of its subsidiaries or its affiliates.** It is an independent implementation that accesses NASA's publicly available APIs. All NASA data used is publicly available and subject to NASA's data usage policies.
