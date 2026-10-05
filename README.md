@@ -46,7 +46,153 @@ Ask your MCP client things like:
 
 ## Installation
 
-### Running with npx
+You don't start an MCP server yourself. Your AI app (Claude, Cursor, VS Code, Codex and others) launches it in the background, so installing it means adding an entry to that app's MCP configuration. The only prerequisite is [Node.js](https://nodejs.org/) 22 or newer; `npx` downloads the server the first time the app starts it.
+
+Most tools need no API key. `NASA_API_KEY` (free at <https://api.nasa.gov/>; `DEMO_KEY` works for light use) is only used by `nasa_neo`, `nasa_insight_weather` and `nasa_mars_rover`, and `FIRMS_MAP_KEY` only by `nasa_firms`. Leave out the `env` block if you don't need them.
+
+**Using an AI coding agent (Claude Code, Codex, Cursor, VS Code agent mode)?** Paste this into it:
+
+```text
+Install the NASA MCP server from https://github.com/ProgramComputer/NASA-MCP-server
+for the app you're running in. Follow that app's section under Installation in the
+README, add it for all projects, and don't add an API key. Tell me exactly what you
+changed and whether I need to restart.
+```
+
+### Standard config
+
+Most clients use this JSON shape:
+
+```json
+{
+  "mcpServers": {
+    "nasa": {
+      "command": "npx",
+      "args": ["-y", "@programcomputer/nasa-mcp-server@latest"],
+      "env": {
+        "NASA_API_KEY": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+If the file already has an `mcpServers` object, add the `"nasa"` entry inside it instead of pasting a second `mcpServers`.
+
+<details>
+<summary>Claude Desktop</summary>
+
+Open **Settings → Developer → Edit Config**. This opens `claude_desktop_config.json`:
+
+* macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+* Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Paste the standard config, save, then fully quit and reopen Claude Desktop.
+
+</details>
+
+<details>
+<summary>Claude Code</summary>
+
+```bash
+claude mcp add --env NASA_API_KEY=YOUR_API_KEY --scope user nasa -- npx -y @programcomputer/nasa-mcp-server@latest
+```
+
+`--scope user` makes the server available in every project; leave it out to add it to the current project only. On native Windows, replace `npx` with `cmd /c npx`.
+
+</details>
+
+<details>
+<summary>Cursor</summary>
+
+[<img src="https://cursor.com/deeplink/mcp-install-dark.svg" alt="Install in Cursor">](https://cursor.com/install-mcp?name=nasa&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBwcm9ncmFtY29tcHV0ZXIvbmFzYS1tY3Atc2VydmVyQGxhdGVzdCJdfQ%3D%3D)
+
+The button installs the server without an API key. To install by hand, or to add a key, paste the standard config into `~/.cursor/mcp.json` (all projects) or `.cursor/mcp.json` (one project).
+
+</details>
+
+<details>
+<summary>VS Code (GitHub Copilot)</summary>
+
+[<img src="https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square" alt="Install in VS Code">](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522nasa%2522%252C%2522command%2522%253A%2522npx%2522%252C%2522args%2522%253A%255B%2522-y%2522%252C%2522%2540programcomputer%252Fnasa-mcp-server%2540latest%2522%255D%257D) [<img src="https://img.shields.io/badge/VS_Code_Insiders-Install_Server-24bfa5?style=flat-square" alt="Install in VS Code Insiders">](https://insiders.vscode.dev/redirect?url=vscode-insiders%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522nasa%2522%252C%2522command%2522%253A%2522npx%2522%252C%2522args%2522%253A%255B%2522-y%2522%252C%2522%2540programcomputer%252Fnasa-mcp-server%2540latest%2522%255D%257D)
+
+The buttons install the server without an API key. VS Code uses a top-level `servers` key instead of `mcpServers`. To install by hand, add this to `.vscode/mcp.json` in your workspace, or run **MCP: Open User Configuration** from the Command Palette for all workspaces. VS Code asks for the key the first time the server starts and stores it securely; leave it blank to skip it.
+
+```json
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "nasa-api-key",
+      "description": "NASA API key (optional)",
+      "password": true
+    }
+  ],
+  "servers": {
+    "nasa": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@programcomputer/nasa-mcp-server@latest"],
+      "env": {
+        "NASA_API_KEY": "${input:nasa-api-key}"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary>Codex</summary>
+
+```bash
+codex mcp add nasa --env NASA_API_KEY=YOUR_API_KEY -- npx -y @programcomputer/nasa-mcp-server@latest
+```
+
+This writes the following to `~/.codex/config.toml`, which the Codex CLI, IDE extension and desktop app share. You can also add it by hand:
+
+```toml
+[mcp_servers.nasa]
+command = "npx"
+args = ["-y", "@programcomputer/nasa-mcp-server@latest"]
+
+[mcp_servers.nasa.env]
+NASA_API_KEY = "YOUR_API_KEY"
+```
+
+</details>
+
+<details>
+<summary>Gemini CLI</summary>
+
+Paste the standard config into `~/.gemini/settings.json` (all projects) or `.gemini/settings.json` (one project).
+
+</details>
+
+<details>
+<summary>Other clients</summary>
+
+Most other MCP clients accept the standard config. If a client asks for the command and arguments separately, the command is `npx` and the arguments are `-y @programcomputer/nasa-mcp-server@latest`.
+
+To run a local clone instead of the npm package (see [Manual Installation](#manual-installation)), use `"command": "node"` with `"args": ["/absolute/path/to/NASA-MCP-server/dist/index.js"]`.
+
+</details>
+
+### Checking that it works
+
+Restart or reload your client and check that a server named `nasa` appears in its MCP or tools list. Then ask something like "What's today's Astronomy Picture of the Day?"
+
+If the server doesn't appear:
+
+* Run `node --version` and make sure it prints v22 or newer.
+* Check the config file for JSON mistakes such as a trailing comma or a second `mcpServers` object.
+* Run the server from a terminal (below) to see any errors. If it prints nothing and waits, it is working; press Ctrl+C to stop it.
+* On Windows, if the client reports that `npx` can't be found, use `"command": "cmd"` with `"args": ["/c", "npx", "-y", "@programcomputer/nasa-mcp-server@latest"]`.
+
+### Running from a terminal
+
+You only need this for testing; your MCP client starts the server for you.
 
 ```bash
 env NASA_API_KEY=YOUR_API_KEY npx -y @programcomputer/nasa-mcp-server@latest
@@ -75,6 +221,7 @@ npm run build
 NASA_API_KEY=YOUR_API_KEY npm start
 ```
 Replace YOUR_API_KEY with your NASA API key from <https://api.nasa.gov/>. Requires Node.js 22 or newer.
+
 ## Environment Variables
 
 The server can be configured with the following environment variables:
@@ -321,7 +468,7 @@ For detailed examples, see the [Inspector Test Examples](docs/inspector-test-exa
 
 ## MCP Client Usage
 
-This server follows the official Model Context Protocol. For local clients, use the default stdio configuration shown above. For Streamable HTTP mode, start the server with `MCP_TRANSPORT=http`, then connect with the MCP SDK:
+This server follows the official Model Context Protocol. For local clients, use the stdio configuration in [Installation](#installation). For Streamable HTTP mode, start the server with `MCP_TRANSPORT=http`, then connect with the MCP SDK:
 
 ```typescript
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
