@@ -10,7 +10,15 @@ const MAST_INVOKE_URL = 'https://mast.stsci.edu/api/v0/invoke';
 const MAST_DOWNLOAD_URL = 'https://mast.stsci.edu/api/v0.1/Download/file';
 /** Uncached position searches have taken over a minute while MAST was busy. */
 const MAST_TIMEOUT_MS = 90_000;
-const NAME_LOOKUP_TIMEOUT_MS = 30_000;
+const NAME_LOOKUP_TIMEOUT_MS = 40_000;
+/**
+ * MAST latency is heavy-tailed: a request that usually takes half a second
+ * sometimes stalls for a minute while an identical one sent next answers at
+ * once. Stalled requests are therefore abandoned and re-sent (they are all
+ * read-only), a bounded number of times.
+ */
+const ATTEMPT_TIMEOUT_MS = 30_000;
+const MAX_ATTEMPTS = 3;
 const EXECUTING_POLL_MS = 1_000;
 const RETRY_HINT = 'MAST keeps running slow searches and caches the result, so the same call often succeeds a minute later.';
 /** MAST's row order changes between identical queries, so results are fetched in one page and sorted locally. */
@@ -19,19 +27,24 @@ const MAX_PRODUCT_ROWS = 5000;
 const MJD_UNIX_EPOCH = 40_587;
 
 async function mastPost<T>(ctx: ToolContext, request: Record<string, unknown>, timeoutMs: number): Promise<{ data: T; source: SourceInfo }> {
-  try {
-    const response = await httpRequest(ctx.fetch, {
-      service: SERVICE,
-      url: MAST_INVOKE_URL,
-      method: 'POST',
-      headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
-      body: new URLSearchParams({ request: JSON.stringify(request) }).toString(),
-      timeoutMs
-    });
-    return { data: response.json<T>(), source: sourceInfo(ctx, SERVICE, response.url) };
-  } catch (error) {
-    if (error instanceof UpstreamError && error.kind === 'timeout') throw new UpstreamError(SERVICE, 'timeout', `${error.message} ${RETRY_HINT}`);
-    throw error;
+  const deadline = Date.now() + timeoutMs;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const response = await httpRequest(ctx.fetch, {
+        service: SERVICE,
+        url: MAST_INVOKE_URL,
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded', accept: 'application/json' },
+        body: new URLSearchParams({ request: JSON.stringify(request) }).toString(),
+        timeoutMs: Math.max(1, Math.min(ATTEMPT_TIMEOUT_MS, deadline - Date.now()))
+      });
+      return { data: response.json<T>(), source: sourceInfo(ctx, SERVICE, response.url) };
+    } catch (error) {
+      if (!(error instanceof UpstreamError && error.kind === 'timeout')) throw error;
+      if (attempt >= MAX_ATTEMPTS || deadline - Date.now() < 1_000) {
+        throw new UpstreamError(SERVICE, 'timeout', `MAST did not answer within ${Math.round(timeoutMs / 1000)} seconds (${plural(attempt, 'attempt')}). ${RETRY_HINT}`);
+      }
+    }
   }
 }
 
@@ -50,14 +63,15 @@ export async function mastQuery<T>(
   ctx: ToolContext,
   service: string,
   params: Record<string, unknown>,
-  pagesize: number
+  pagesize: number,
+  timeoutMs = MAST_TIMEOUT_MS
 ): Promise<{ rows: T[]; total: number; source: SourceInfo }> {
   const request = { service, params, format: 'json', pagesize, page: 1 };
-  const deadline = Date.now() + MAST_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
   for (;;) {
     const remaining = deadline - Date.now();
     if (remaining <= 0) {
-      throw new UpstreamError(SERVICE, 'timeout', `MAST was still running ${service} after ${MAST_TIMEOUT_MS / 1000} seconds. ${RETRY_HINT}`);
+      throw new UpstreamError(SERVICE, 'timeout', `MAST was still running ${service} after ${timeoutMs / 1000} seconds. ${RETRY_HINT}`);
     }
     const { data, source } = await mastPost<MastTable<T>>(ctx, request, remaining);
     if (data.status === 'EXECUTING') {
@@ -237,6 +251,12 @@ function observationListing(rows: Observation[], limit: number, hint: string): {
 }
 
 const DATAPRODUCT_TYPES = ['image', 'spectrum', 'timeseries', 'cube', 'measurements'] as const;
+const TIC_MATCH_RADIUS_ARCSEC = 10;
+/**
+ * Recent observations of fast-moving nearby stars lie far from their catalog
+ * (J2000) position: TRAPPIST-1 is about 25″ away, outside a 10″ circle around it.
+ */
+const POSITION_RADIUS_ARCSEC = 60;
 
 export const mastObservationsInputSchema = z
   .strictObject({
@@ -245,11 +265,12 @@ export const mastObservationsInputSchema = z
       .number()
       .positive()
       .max(600)
-      .default(10)
       .describe(
-        'Search radius in arcseconds (default 10, max 600). For TESS light curves, TIC stars within this radius are matched; ' +
-          'otherwise observations whose footprint overlaps the circle match.'
-      ),
+        `Search radius in arcseconds (max 600). TESS light curve searches match TIC stars within it (default ${TIC_MATCH_RADIUS_ARCSEC}). ` +
+          `Other searches match observations whose footprint overlaps the circle (default ${POSITION_RADIUS_ARCSEC}, because recent observations ` +
+          'of fast-moving nearby stars such as TRAPPIST-1 lie tens of arcseconds from their catalog position).'
+      )
+      .optional(),
     collection: z
       .string()
       .trim()
@@ -302,8 +323,9 @@ async function tessLightCurves(ctx: ToolContext, args: ObservationsArgs): Promis
     where = `TIC ${ids[0]}`;
   } else {
     target = await resolveTarget(ctx, args);
-    const radius = `${formatNumber(args.radius_arcsec)}″`;
-    const cone = await mastQuery<TicStar>(ctx, 'Mast.Catalogs.Tic.Cone', { ra: target.ra, dec: target.dec, radius: args.radius_arcsec / 3600 }, MAX_TIC_STARS);
+    const radiusArcsec = args.radius_arcsec ?? TIC_MATCH_RADIUS_ARCSEC;
+    const radius = `${formatNumber(radiusArcsec)}″`;
+    const cone = await mastQuery<TicStar>(ctx, 'Mast.Catalogs.Tic.Cone', { ra: target.ra, dec: target.dec, radius: radiusArcsec / 3600 }, MAX_TIC_STARS);
     const stars = cone.rows.filter((s) => s.ID !== undefined && s.ID !== null).sort((a, b) => (a.dstArcSec ?? Infinity) - (b.dstArcSec ?? Infinity));
     if (stars.length === 0) {
       return {
@@ -367,12 +389,13 @@ async function positionSearch(ctx: ToolContext, args: ObservationsArgs, collecti
     ...(collection ? [{ paramName: 'obs_collection', values: [collection] }] : []),
     ...(args.dataproduct_type ? [{ paramName: 'dataproduct_type', values: [args.dataproduct_type] }] : [])
   ];
-  const position = [target.ra, target.dec, args.radius_arcsec / 3600].map(formatNumber).join(', ');
+  const radiusArcsec = args.radius_arcsec ?? POSITION_RADIUS_ARCSEC;
+  const position = [target.ra, target.dec, radiusArcsec / 3600].map(formatNumber).join(', ');
   const query = { columns: OBSERVATION_COLUMNS, filters, position };
   const { rows, total, source } = await mastQuery<Observation>(ctx, 'Mast.Caom.Filtered.Position', query, MAX_OBSERVATION_ROWS);
 
   const scope = [collection ?? 'MAST', args.dataproduct_type].filter(Boolean).join(' ');
-  const where = `within ${formatNumber(args.radius_arcsec)}″ of ${target.label}`;
+  const where = `within ${formatNumber(radiusArcsec)}″ of ${target.label}`;
   const resource = {
     name: `MAST observations ${scope} ${where}`,
     mimeType: 'application/json',
@@ -384,7 +407,8 @@ async function positionSearch(ctx: ToolContext, args: ObservationsArgs, collecti
   const lines = [
     `${plural(total, `${scope} observation`)} ${where}.` + (rows.length < total ? ` Counts below cover the first ${rows.length}; narrow the search to see all.` : ''),
     ...(collection ? [] : [`By collection: ${countBy(rows, (r) => r.obs_collection ?? undefined)}.`]),
-    `By type: ${countBy(rows, (r) => r.dataproduct_type ?? undefined)}.`
+    `By type: ${countBy(rows, (r) => r.dataproduct_type ?? undefined)}.`,
+    `By instrument: ${countBy(rows, (r) => (r.instrument_name ? (collection ? r.instrument_name : `${r.obs_collection} ${r.instrument_name}`) : undefined))}.`
   ];
   const lightCurveSectors = sectorList(rows.filter((r) => isTess(r) && r.dataproduct_type === 'timeseries'));
   const ffiSectors = sectorList(rows.filter((r) => isTess(r) && r.dataproduct_type === 'image'));

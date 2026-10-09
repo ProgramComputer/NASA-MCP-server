@@ -100,6 +100,23 @@ describe('MAST helpers', () => {
     assert.deepEqual(mastRequest(request), { service: 'Mast.Name.Lookup', params: { input: 'notastar xyz123', format: 'json' }, format: 'json' });
   });
 
+  it('re-sends a stalled request, at most three times', async () => {
+    const stall = () => {
+      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    };
+    let attempts = 0;
+    const recovered = await call('nasa_mast_observations', { tic_id: 261136679 }, [
+      mast({ 'Mast.Caom.Filtered': () => (++attempts === 1 ? stall() : table([])) })
+    ]);
+    assert.equal(recovered.result.isError, undefined, recovered.text);
+    assert.equal(attempts, 2);
+
+    const stalled = await call('nasa_mast_observations', { tic_id: 261136679 }, [[INVOKE, stall]]);
+    assert.equal(stalled.result.isError, true);
+    assert.equal(stalled.calls.length, 3);
+    assert.match(stalled.text, /^MAST did not answer within 90 seconds \(3 attempts\)\. MAST keeps running slow searches/);
+  });
+
   it('re-requests a query MAST is still executing and surfaces MAST errors', async () => {
     let attempts = 0;
     const executing = await call('nasa_mast_observations', { tic_id: 261136679 }, [
@@ -225,6 +242,7 @@ describe('nasa_mast_observations', () => {
       { paramName: 'dataproduct_type', values: ['timeseries'] }
     ]);
     assert.match(jwst.text, /^270 JWST timeseries observations within 5″ of TRAPPIST-1 \(RA 346\.62237°, Dec -5\.04140°; resolved by SIMBAD\)\. Counts below cover the first 1;/);
+    assert.match(jwst.text, /\nBy type: timeseries 1\.\nBy instrument: MIRI\/IMAGE 1\.\n/);
     assert.match(
       jwst.text,
       /- obsid 233336015: JWST MIRI\/IMAGE timeseries; filter F1280W; 15625\.7 s exposure; 2024-12-05; pipeline CALJWST; target TRAPPIST-1; obs_id jw05191004001_03101_00001-seg007_mirimage; proposal 5191 \(PI Ducrot, Elsa\); EXCLUSIVE_ACCESS$/
@@ -242,14 +260,15 @@ describe('nasa_mast_observations', () => {
         }
       })
     ]);
+    assert.equal(request!.params.position, `133.14921, 28.33082, ${60 / 3600}`, 'position searches default to 60″');
     assert.deepEqual(request!.params.filters, []);
-    assert.match(all.text, /By collection: TESS 2, HST 1\.\nBy type: timeseries 2, image 1\.\nTESS sectors with light curves: 21\.\nTESS sectors with full-frame images: 44 \(use nasa_tess_ffi for cutouts\)\./);
+    assert.match(all.text, /By collection: TESS 2, HST 1\.\nBy type: timeseries 2, image 1\.\nBy instrument: HST FGS 1\.\nTESS sectors with light curves: 21\.\nTESS sectors with full-frame images: 44 \(use nasa_tess_ffi for cutouts\)\./);
 
     const ffi = await call('nasa_mast_observations', { tic_id: 261136679, dataproduct_type: 'image' }, [
       mast({ 'Mast.Name.Lookup': () => piMensae, 'Mast.Caom.Filtered.Position': () => table([]) })
     ]);
     assert.deepEqual(services(ffi.calls), ['Mast.Name.Lookup', 'Mast.Caom.Filtered.Position']);
-    assert.match(ffi.text, /^No TESS image observations within 10″ of TIC 261136679/);
+    assert.match(ffi.text, /^No TESS image observations within 60″ of TIC 261136679/);
   });
 });
 

@@ -9,6 +9,8 @@ import { checkTarget, dateRange, mastQuery, resolveTarget, targetShape } from '.
 const SERVICE = 'MAST TESSCut';
 const TESSCUT_BASE_URL = 'https://mast.stsci.edu/tesscut/api/v0.1';
 const TESS_PIXEL_ARCSEC = 21;
+/** Sector dates are optional, so a slow MAST should not hold up the sector list. */
+const SECTOR_DATES_TIMEOUT_MS = 15_000;
 
 interface SectorResult {
   sectorName?: string;
@@ -95,7 +97,7 @@ export const tessFfiTool = defineTool({
         { paramName: 'obs_collection', values: ['TESS'] },
         { paramName: 'obs_id', values: names }
       ];
-      const { rows } = await mastQuery<FfiObservation>(ctx, 'Mast.Caom.Filtered', { columns: 'obs_id,t_min,t_max', filters }, names.length);
+      const { rows } = await mastQuery<FfiObservation>(ctx, 'Mast.Caom.Filtered', { columns: 'obs_id,t_min,t_max', filters }, names.length, SECTOR_DATES_TIMEOUT_MS);
       const dates = new Map(rows.map((row) => [row.obs_id, dateRange(row.t_min, row.t_max)]));
       for (const sector of sectors) sector.dates = dates.get(sector.name);
     } catch (error) {

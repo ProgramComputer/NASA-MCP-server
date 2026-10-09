@@ -99,7 +99,7 @@ describe('live MAST', { skip: skipLive }, () => {
     const result = await server().callTool('nasa_mast_observations', { target: 'TRAPPIST-1', collection: 'JWST', limit: 3 });
     const text = textOf(result);
     assert.equal(result.isError, undefined, text);
-    assert.match(text, /^\d+ JWST observations within 10″ of TRAPPIST-1/);
+    assert.match(text, /^\d+ JWST observations within 60″ of TRAPPIST-1 .*\nBy type: .*\nBy instrument: .*NIRSPEC\/SLIT \d+/, 'NIRSpec slit observations sit about 25″ from the catalog position');
   });
 });
 

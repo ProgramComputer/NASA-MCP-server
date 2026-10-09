@@ -339,7 +339,7 @@ Aliases: `nasa/mast_observations`, `nasa/mast-observations`
 | `tic_id` | integer (1–99999999999) |  |  | TESS Input Catalog (TIC) ID, e.g. 261136679. |
 | `ra` | number (0–360) |  |  | Right ascension in decimal degrees (ICRS). Use with dec instead of target or tic_id. |
 | `dec` | number (-90–90) |  |  | Declination in decimal degrees (ICRS). Use with ra. |
-| `radius_arcsec` | number (>0–600) |  | `10` | Search radius in arcseconds (default 10, max 600). For TESS light curves, TIC stars within this radius are matched; otherwise observations whose footprint overlaps the circle match. |
+| `radius_arcsec` | number (>0–600) |  |  | Search radius in arcseconds (max 600). TESS light curve searches match TIC stars within it (default 10). Other searches match observations whose footprint overlaps the circle (default 60, because recent observations of fast-moving nearby stars such as TRAPPIST-1 lie tens of arcseconds from their catalog position). |
 | `collection` | string |  | `"TESS"` | MAST collection (mission), e.g. TESS, HST, JWST, Kepler, K2, GALEX, SWIFT, PS1 or HLSP (high-level science products). "all" searches every collection. TESS light curve searches also include TESS high-level science products such as QLP and TESS-SPOC. |
 | `dataproduct_type` | `"image"` \\| `"spectrum"` \\| `"timeseries"` \\| `"cube"` \\| `"measurements"` |  |  | Only this data product type. For TESS, light curves (timeseries) are listed by default; image lists full-frame image observations, which nasa_tess_ffi covers faster. |
 | `limit` | integer (1–200) |  | `25` | How many observations to list, newest first (1-200). Counts in the summary cover all matches. |
