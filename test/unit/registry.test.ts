@@ -12,7 +12,7 @@ const EXPECTED_TOOLS = [
   'nasa_mars_rover', 'nasa_eonet', 'nasa_power', 'nasa_osdr_files', 'jpl_sbdb', 'jpl_fireball', 'jpl_jd_cal', 'jpl_nhats',
   'jpl_cad', 'jpl_sentry', 'jpl_horizons', 'jpl_horizons_file', 'jpl_periodic_orbits', 'jpl_scout',
   'nasa_insight_weather', 'nasa_tle', 'nasa_ssc_observatories', 'nasa_ssc_locations', 'nasa_techport', 'nasa_techtransfer',
-  'nasa_trek_layers', 'nasa_trek_tile', 'jpl_mission_design'
+  'nasa_trek_layers', 'nasa_trek_tile', 'jpl_mission_design', 'nasa_mast_observations', 'nasa_mast_products', 'nasa_tess_ffi'
 ];
 
 describe('tool registry', () => {

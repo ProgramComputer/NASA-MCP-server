@@ -189,6 +189,28 @@ Mars, Moon and Vesta Trek map layers and tiles:
 { "name": "nasa_osdr_files", "arguments": { "accession_number": "OSD-87" } }
 ```
 
+MAST (TESS, Hubble, JWST, Kepler and more): TESS light curves of a star, the files of one observation, and TESS full-frame image sectors with cutout URLs. Results list download links; files are not downloaded:
+
+```json
+{ "name": "nasa_mast_observations", "arguments": { "target": "Pi Mensae", "limit": 10 } }
+```
+
+```json
+{ "name": "nasa_mast_observations", "arguments": { "target": "TRAPPIST-1", "collection": "JWST", "dataproduct_type": "timeseries", "limit": 5 } }
+```
+
+```json
+{ "name": "nasa_mast_products", "arguments": { "obsids": ["176755222"], "subgroups": ["LC"] } }
+```
+
+```json
+{ "name": "nasa_mast_products", "arguments": { "obsids": "120865840", "minimum_recommended": true } }
+```
+
+```json
+{ "name": "nasa_tess_ffi", "arguments": { "tic_id": 261136679, "cutout_size": 20 } }
+```
+
 ## JPL Solar System Dynamics
 
 ```json

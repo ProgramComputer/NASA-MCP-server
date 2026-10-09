@@ -14,6 +14,18 @@ export function isIsoDate(value: string): boolean {
 export const isoDate = (description: string) =>
   z.string().refine(isIsoDate, { message: 'must be a valid calendar date in YYYY-MM-DD format' }).describe(description);
 
+/**
+ * Preprocessor for list parameters that also accept "a,b" text: items are
+ * trimmed and normalized (lower-cased by default), and empty items dropped.
+ */
+export function listInput(normalize: (item: string) => string = (item) => item.toLowerCase()) {
+  return (value: unknown): unknown => {
+    const items = typeof value === 'string' ? value.split(',') : value;
+    if (!Array.isArray(items)) return items;
+    return items.map((item) => (typeof item === 'string' ? normalize(item.trim()) : item)).filter((item) => item !== '');
+  };
+}
+
 /** Whole days between two YYYY-MM-DD dates (end - start). */
 export function daysBetween(start: string, end: string): number {
   return Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86_400_000);
