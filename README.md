@@ -39,6 +39,8 @@ Ask your MCP client things like:
 * "Which near-Earth asteroids need the least delta-v for a mission launched in 2030?"
 * "Which NASA technology projects have worked on solar sails?"
 * "Find NASA patents about solar panels that companies can license."
+* "Which TESS sectors observed Pi Mensae, and where can I download its 2-minute light curves?"
+* "Has JWST observed TRAPPIST-1, and with which instruments?"
 
 ## Disclaimer
 
@@ -271,6 +273,7 @@ This MCP server integrates the following NASA APIs:
    - Mars, Moon and Vesta Trek (WMTS map layers and tiles)
    - NASA Image and Video Library
    - Exoplanet Archive
+   - MAST (Mikulski Archive for Space Telescopes): TESS, Hubble, JWST, Kepler/K2 and other observations, their data products, and TESS full-frame image cutouts (TESSCut). The tools return download links to the FITS files rather than the files themselves, so your client can find data but not analyze it.
    - Open Science Data Repository (OSDR) files
    - POWER (Prediction Of Worldwide Energy Resources)
 

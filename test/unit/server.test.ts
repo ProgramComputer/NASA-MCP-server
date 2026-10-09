@@ -72,7 +72,7 @@ describe('MCP server', () => {
     const invalid = await client.request({ method: 'nasa/cmr', params: { limit: 'ten' } } as never, CallToolResultSchema);
     assert.equal(invalid.isError, true);
     const manifest = await client.request({ method: 'tools/manifest', params: {} } as never, z.object({ apis: z.array(z.object({ name: z.string(), id: z.string() })) }));
-    assert.equal(manifest.apis.length, 32);
+    assert.equal(manifest.apis.length, 35);
     assert.ok(manifest.apis.some((api) => api.name === 'nasa_mars_rover' && api.id === 'nasa/mars_rover'));
     await client.close();
   });

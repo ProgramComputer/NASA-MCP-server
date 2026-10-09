@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { defineTool, READ_ONLY_REMOTE, type ToolContext } from '../../tools/types';
 import { ToolInputError, UpstreamError } from '../../util/errors';
 import { httpRequest } from '../../util/http';
-import { isoDate } from '../../util/validation';
+import { isoDate, listInput } from '../../util/validation';
 import { boundedText, buildUrl, json, sourceInfo, text, type QueryValue } from '../common';
 
 const SERVICE = 'NASA Satellite Situation Center';
@@ -103,22 +103,15 @@ export const sscObservatoriesTool = defineTool({
   }
 });
 
-/** List parameters also accept "a,b" text; items are trimmed and lower-cased. */
-function listInput(value: unknown): unknown {
-  const items = typeof value === 'string' ? value.split(',') : value;
-  if (!Array.isArray(items)) return items;
-  return items.map((item) => (typeof item === 'string' ? item.trim().toLowerCase() : item)).filter((item) => item !== '');
-}
-
 export const sscLocationsInputSchema = z
   .strictObject({
     observatories: z
-      .preprocess(listInput, z.array(z.string().regex(/^[a-z0-9]+$/, 'must be an SSC observatory ID such as iss or mms1')).min(1).max(5))
+      .preprocess(listInput(), z.array(z.string().regex(/^[a-z0-9]+$/, 'must be an SSC observatory ID such as iss or mms1')).min(1).max(5))
       .describe('1-5 SSC observatory IDs, e.g. ["iss"] or ["mms1", "moon"] (see nasa_ssc_observatories). A comma-separated string also works.'),
     start_time: utcTime('Start time (UTC), e.g. 2026-09-29T06:00:00Z; a bare date such as 2026-09-29 means 00:00 UTC.'),
     end_time: utcTime(`End time (UTC); at most ${MAX_SPAN_DAYS} days after start_time.`),
     coordinate_systems: z
-      .preprocess(listInput, z.array(z.enum(COORDINATE_SYSTEMS)).min(1).max(COORDINATE_SYSTEMS.length))
+      .preprocess(listInput(), z.array(z.enum(COORDINATE_SYSTEMS)).min(1).max(COORDINATE_SYSTEMS.length))
       .default(['geo'])
       .describe('Coordinate systems (default geo): geo, gm, gse, gsm, sm, geitod, geij2000. A comma-separated string also works.'),
     resolution_factor: z

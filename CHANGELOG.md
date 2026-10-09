@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0
+
+Three new tools for the Mikulski Archive for Space Telescopes (MAST), NASA's archive for TESS, Hubble, JWST, Kepler and other missions. Existing tools are unchanged. The new tools need no API key and return download links rather than files, so a client can find TESS light curves and other data but cannot read the FITS files through this server.
+
+### New tools
+
+- `nasa_mast_observations`: observations of a named object, a TIC ID or a sky position. For TESS (the default) it matches TESS Input Catalog stars and lists their light curves by sector: SPOC 2-minute and 20-second light curves, and high-level science product (HLSP) light curves made from full-frame images, such as QLP and TESS-SPOC. Multi-sector transit searches are shown as sector ranges and are not counted as observed sectors. Other collections (`HST`, `JWST`, `Kepler`, `all` and others) and data product types use MAST's position search, which can take a minute when MAST is busy.
+- `nasa_mast_products`: the files of up to 20 observations, with type, size and a download URL for each. It lists science files by default; `subgroups` and `minimum_recommended` narrow Hubble and JWST observations, which can list hundreds of files. Files still in their proprietary period are marked `EXCLUSIVE_ACCESS` and need a MAST token.
+- `nasa_tess_ffi`: the TESS sectors, cameras and CCDs whose full-frame images cover a position, with sector dates and a TESSCut cutout URL (a ZIP of FITS target pixel files) for each sector.
+
 ## 1.2.0
 
 A migration release. APOD and DONKI moved to new upstream APIs (the old api.nasa.gov endpoints no longer return data), and nine tools were added. It is published as a minor version, but **`nasa_apod` and `nasa_donki` parameters and output changed**. Review the list below before upgrading, or pin `1.1.0`; note that APOD and DONKI no longer work in 1.1.0.

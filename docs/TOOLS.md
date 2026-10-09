@@ -327,6 +327,52 @@ Aliases: `nasa/trek_tile`, `nasa/trek-tile`
 | `latitude` | number (-90–90) |  |  | Equirectangular only: pick the tile containing this latitude (degrees). |
 | `longitude` | number (-180–360) |  |  | Equirectangular only: pick the tile containing this longitude (degrees east, -180 to 360). |
 
+## `nasa_mast_observations` — MAST observations (TESS, Hubble, JWST, Kepler and more)
+
+Search the Mikulski Archive for Space Telescopes (MAST), NASA's archive for TESS, Hubble, JWST, Kepler/K2 and other missions, for observations of a named object, a TIC ID or a sky position. For TESS (the default) it lists light curves of the matching TIC stars with their sectors: SPOC 2-minute and 20-second light curves and high-level science product (HLSP) light curves such as QLP and TESS-SPOC, made from full-frame images. Other collections and data product types use MAST's position search, which can take a minute when MAST is busy. Returns obsid values for nasa_mast_products (files and download links). No API key needed.
+
+Aliases: `nasa/mast_observations`, `nasa/mast-observations`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `target` | string |  |  | Object name resolved by MAST (SIMBAD, NED or the TESS Input Catalog), e.g. "Pi Mensae", "TRAPPIST-1", "M31" or "TIC 261136679". |
+| `tic_id` | integer (1–99999999999) |  |  | TESS Input Catalog (TIC) ID, e.g. 261136679. |
+| `ra` | number (0–360) |  |  | Right ascension in decimal degrees (ICRS). Use with dec instead of target or tic_id. |
+| `dec` | number (-90–90) |  |  | Declination in decimal degrees (ICRS). Use with ra. |
+| `radius_arcsec` | number (>0–600) |  | `10` | Search radius in arcseconds (default 10, max 600). For TESS light curves, TIC stars within this radius are matched; otherwise observations whose footprint overlaps the circle match. |
+| `collection` | string |  | `"TESS"` | MAST collection (mission), e.g. TESS, HST, JWST, Kepler, K2, GALEX, SWIFT, PS1 or HLSP (high-level science products). "all" searches every collection. TESS light curve searches also include TESS high-level science products such as QLP and TESS-SPOC. |
+| `dataproduct_type` | `"image"` \\| `"spectrum"` \\| `"timeseries"` \\| `"cube"` \\| `"measurements"` |  |  | Only this data product type. For TESS, light curves (timeseries) are listed by default; image lists full-frame image observations, which nasa_tess_ffi covers faster. |
+| `limit` | integer (1–200) |  | `25` | How many observations to list, newest first (1-200). Counts in the summary cover all matches. |
+
+## `nasa_mast_products` — MAST data products and download links
+
+List the files of MAST observations (from nasa_mast_observations), such as TESS light curves and target pixel files or Hubble and JWST images and spectra, with type, size and a download URL for each. Files are not downloaded or embedded. No API key needed.
+
+Aliases: `nasa/mast_products`, `nasa/mast-products`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `obsids` | string[] | yes |  | 1-20 numeric obsid values from nasa_mast_observations (not the obs_id text). A comma-separated string also works. |
+| `product_types` | `"science"` \\| `"info"` \\| `"preview"` \\| `"auxiliary"`[] |  |  | Product types to list (default science): science, info (for example TESS data validation reports), preview and auxiliary. |
+| `subgroups` | string[] |  |  | Only these product subgroups, e.g. ["LC"] for TESS light curves, ["TP"] for target pixel files, ["DRZ", "FLT"] for Hubble images or ["X1D"] for spectra. High-level science products (HLSP) have no subgroup, so this filter leaves them out. |
+| `minimum_recommended` | boolean |  | `false` | Only MAST's minimum recommended products (useful for Hubble and JWST, which list many intermediate files). |
+| `limit` | integer (1–500) |  | `50` | How many products to list (1-500). |
+
+## `nasa_tess_ffi` — TESS full-frame image sectors and cutouts (TESSCut)
+
+Which TESS sectors, cameras and CCDs observed a sky position in their full-frame images (FFIs), with sector dates and a TESSCut download URL for a cutout of each sector (a ZIP of FITS target pixel files made from SPOC FFIs). Works for any star, including those without 2-minute light curves. Accepts an object name, TIC ID or coordinates. Cutouts are not downloaded. No API key needed.
+
+Aliases: `nasa/tess_ffi`, `nasa/tess-ffi`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `target` | string |  |  | Object name resolved by MAST (SIMBAD, NED or the TESS Input Catalog), e.g. "Pi Mensae", "TRAPPIST-1", "M31" or "TIC 261136679". |
+| `tic_id` | integer (1–99999999999) |  |  | TESS Input Catalog (TIC) ID, e.g. 261136679. |
+| `ra` | number (0–360) |  |  | Right ascension in decimal degrees (ICRS). Use with dec instead of target or tic_id. |
+| `dec` | number (-90–90) |  |  | Declination in decimal degrees (ICRS). Use with ra. |
+| `cutout_size` | integer (1–100) |  | `10` | Width and height of each cutout in TESS pixels (21″ each), 1-100. TESSCut limits a cutout to 10,000 pixels. |
+| `sector` | integer (1–9999) |  |  | Only this sector. |
+
 ## `jpl_sbdb` — JPL Small-Body Database lookup
 
 Orbital and physical data for one asteroid or comet from the JPL Small-Body Database (SBDB).

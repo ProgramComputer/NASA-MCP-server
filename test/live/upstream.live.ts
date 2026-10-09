@@ -65,6 +65,44 @@ describe('live APOD', { skip: skipLive }, () => {
   });
 });
 
+describe('live MAST', { skip: skipLive }, () => {
+  const textOf = (result: { content: Array<{ type: string; text?: string }> }) => result.content.map((c) => c.text ?? '').join('\n');
+
+  it('finds Pi Mensae light curves by TIC star, with SPOC and HLSP sectors', async () => {
+    const result = await server().callTool('nasa_mast_observations', { target: 'Pi Mensae', limit: 5 });
+    const text = textOf(result);
+    assert.equal(result.isError, undefined, text);
+    assert.match(text, /Matched TIC 261136679 /);
+    assert.match(text, /TESS mission \(SPOC\) target light curves: sectors 1, 4, /);
+    assert.match(text, /HLSP\) light curves: .*QLP sectors 1, /);
+    assert.match(text, /- obsid \d+: /);
+  });
+
+  it('lists the light curve file of a SPOC observation with a working download link', async () => {
+    const result = await server().callTool('nasa_mast_products', { obsids: '176755222', subgroups: 'LC' });
+    const text = textOf(result);
+    assert.equal(result.isError, undefined, text);
+    const url = /https:\/\/mast\.stsci\.edu\/api\/v0\.1\/Download\/file\?uri=\S+_lc\.fits/.exec(text)?.[0];
+    assert.ok(url, text);
+    const head = await fetch(url, { method: 'HEAD', redirect: 'manual' });
+    assert.ok([200, 302, 307].includes(head.status), `download link answered HTTP ${head.status}`);
+  });
+
+  it('lists TESS full-frame image sectors with dates and cutout URLs', async () => {
+    const result = await server().callTool('nasa_tess_ffi', { tic_id: 261136679 });
+    const text = textOf(result);
+    assert.equal(result.isError, undefined, text);
+    assert.match(text, /- Sector 1 \(camera 4, CCD 2\), 2018-07-25 to 2018-08-22: https:\/\/mast\.stsci\.edu\/tesscut\/api\/v0\.1\/astrocut\?/);
+  });
+
+  it('searches other collections by position', async () => {
+    const result = await server().callTool('nasa_mast_observations', { target: 'TRAPPIST-1', collection: 'JWST', limit: 3 });
+    const text = textOf(result);
+    assert.equal(result.isError, undefined, text);
+    assert.match(text, /^\d+ JWST observations within 10″ of TRAPPIST-1/);
+  });
+});
+
 describe('live FIRMS', { skip: skipFirms }, () => {
   it('area query with the configured MAP_KEY returns a valid result', async () => {
     const result = await server().callTool('nasa_firms', { bbox: '-125,32,-114,42', days: 1, limit: 5 });
