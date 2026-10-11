@@ -159,7 +159,10 @@ jobs:
         env:
           TARBALL: ${{ needs.build.outputs.tarball }}
           DIST_TAG: ${{ inputs.dist_tag }}
-        run: npm stage publish "./$TARBALL" --tag "$DIST_TAG" --access public --provenance 2>&1 | tee stage-output.txt
+        # Without pipefail, tee's exit status would hide a failed publish.
+        run: |
+          set -euo pipefail
+          npm stage publish "./$TARBALL" --tag "$DIST_TAG" --access public --provenance 2>&1 | tee stage-output.txt
 
       - name: Next steps
         env:
