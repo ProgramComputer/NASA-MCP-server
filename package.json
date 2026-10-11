@@ -1,6 +1,6 @@
 {
   "name": "@programcomputer/nasa-mcp-server",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Model Context Protocol (MCP) server for NASA and JPL public APIs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,7 +8,7 @@
     "nasa-mcp-server": "dist/index.js"
   },
   "files": [
-    "dist/**/*.js",
+    "dist/index.js",
     "dist/**/*.d.ts",
     "CHANGELOG.md"
   ],
@@ -17,7 +17,7 @@
   },
   "scripts": {
     "clean": "node scripts/clean.mjs",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/bundle.mjs",
     "build:test": "tsc -p tsconfig.test.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
@@ -53,17 +53,16 @@
   "bugs": {
     "url": "https://github.com/ProgramComputer/NASA-MCP-server/issues"
   },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.31.0",
-    "dotenv": "^17.4.2",
-    "zod": "^4.6.5"
-  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@types/express": "^5.0.6",
     "@types/node": "^22.20.4",
+    "dotenv": "^17.4.2",
+    "esbuild": "^0.28.2",
     "eslint": "^10.11.0",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.71.0"
+    "typescript-eslint": "^8.71.0",
+    "zod": "^4.6.5"
   }
 }

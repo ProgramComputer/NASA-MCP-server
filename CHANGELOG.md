@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1
+
+The server now ships as a single bundled file with no runtime dependencies, so it starts faster; code that imports it as a library must install `@modelcontextprotocol/sdk` and `zod` itself for its TypeScript types.
+
 ## 1.3.0
 
 Three new tools for the Mikulski Archive for Space Telescopes (MAST), NASA's archive for TESS, Hubble, JWST, Kepler and other missions. Existing tools are unchanged. The new tools need no API key and return download links rather than files, so a client can find TESS light curves and other data but cannot read the FITS files through this server.
