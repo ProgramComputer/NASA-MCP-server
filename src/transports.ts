@@ -1,8 +1,6 @@
 import type { Server as HttpServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { createMcpExpressApp } from '@modelcontextprotocol/sdk/server/express.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createNasaMcpServer, type CreateServerOptions } from './server';
 
 export interface RunningServer {
@@ -45,6 +43,14 @@ export async function startHttp(options: HttpOptions = {}): Promise<RunningHttpS
   const port = options.port ?? 3000;
   const path = options.path ?? '/mcp';
   const logError = options.logError ?? ((message: string) => process.stderr.write(`${message}\n`));
+  // Loaded here so stdio launches skip Express and its dependencies, which slow
+  // client startup. require() rather than import() so these share the SDK's
+  // CommonJS build with the rest of the server instead of loading its ESM copy.
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { createMcpExpressApp } = require('@modelcontextprotocol/sdk/server/express.js') as typeof import('@modelcontextprotocol/sdk/server/express.js');
+  const { StreamableHTTPServerTransport } =
+    require('@modelcontextprotocol/sdk/server/streamableHttp.js') as typeof import('@modelcontextprotocol/sdk/server/streamableHttp.js');
+  /* eslint-enable @typescript-eslint/no-require-imports */
   const app = createMcpExpressApp({ host });
 
   app.post(path, async (req, res) => {
